@@ -5,3 +5,4 @@ frontend/e2e/.e2e-db.json
 frontend/test-results/
 frontend/playwright-report/
 frontend/dist/
+frontend/.next/
