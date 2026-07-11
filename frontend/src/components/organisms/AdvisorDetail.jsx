@@ -6,6 +6,7 @@ import Button from '../atoms/Button.jsx'
 import ErrorText from '../atoms/ErrorText.jsx'
 import AllocationRow from '../molecules/AllocationRow.jsx'
 import DecisionNote from '../molecules/DecisionNote.jsx'
+import SlideOver from './SlideOver.jsx'
 
 // HU3: el asesor autorizado aprueba, edita o rechaza la propuesta.
 export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
@@ -13,7 +14,9 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
   const [notes, setNotes] = useState('')
   const [editing, setEditing] = useState(false)
   const [weights, setWeights] = useState({})
-  const [busy, setBusy] = useState(false)
+  const [busyAction, setBusyAction] = useState(null) // qué acción se está procesando
+  const [rejectOpen, setRejectOpen] = useState(false) // slide-over de fricción para rechazo
+  const busy = busyAction !== null
 
   const startEdit = () => {
     const w = {}
@@ -25,16 +28,19 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
   const total = Object.values(weights).reduce((s, v) => s + Number(v || 0), 0)
 
   const decide = async (action) => {
-    setBusy(true)
+    setBusyAction(action)
     const payload = { action, advisor: advisor.trim(), notes }
     if (action === 'editar') {
       payload.edited_allocation = Object.entries(weights)
         .map(([ticker, weight]) => ({ ticker, weight: Number(weight) }))
     }
     const ok = await onDecide(selected.id, payload)
-    setBusy(false)
-    if (ok) { setEditing(false); setNotes('') }
+    setBusyAction(null)
+    if (ok) { setEditing(false); setNotes(''); setRejectOpen(false) }
   }
+
+  // Etiqueta de botón con estado "Procesando…" (spec §4: prevención de doble envío).
+  const label = (action, text) => (busyAction === action ? 'Procesando…' : text)
 
   return (
     <div className="card">
@@ -83,29 +89,54 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
             onChange={e => setNotes(e.target.value)}
             placeholder="Justificación de la decisión…" />
           <p className="rules-hint">Toda decisión queda en auditoría con fecha, responsable y
-            versión de reglas. El rechazo exige motivo escrito.</p>
+            versión de reglas. El rechazo exige motivo escrito y confirmación.</p>
           <ErrorText>{error}</ErrorText>
           <div className="btn-row">
             {editing ? (
               <>
                 <Button data-testid="btn-aprobar-cambios"
                   disabled={busy || !advisor.trim() || Math.abs(total - 100) > 0.01}
-                  onClick={() => decide('editar')}>Aprobar con cambios</Button>
-                <Button variant="ghost" onClick={() => setEditing(false)}>Cancelar edición</Button>
+                  onClick={() => decide('editar')}>{label('editar', 'Aprobar con cambios')}</Button>
+                <Button variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancelar edición</Button>
               </>
             ) : (
               <>
                 <Button data-testid="btn-aprobar" disabled={busy || !advisor.trim()}
-                  onClick={() => decide('aprobar')}>Aprobar</Button>
+                  onClick={() => decide('aprobar')}>{label('aprobar', 'Aprobar')}</Button>
                 <Button variant="ghost" data-testid="btn-editar" disabled={busy || !advisor.trim()}
                   onClick={startEdit}>Editar</Button>
+                {/* Fricción intencional: abre el slide-over de confirmación en vez de
+                    ejecutar el rechazo de inmediato (spec §3). Sigue deshabilitado hasta
+                    que haya responsable y motivo escrito. */}
                 <Button variant="danger" data-testid="btn-rechazar"
                   disabled={busy || !advisor.trim() || !notes.trim()}
                   title={!notes.trim() ? 'El rechazo requiere motivo escrito en las notas' : ''}
-                  onClick={() => decide('rechazar')}>Rechazar</Button>
+                  onClick={() => setRejectOpen(true)}>Rechazar</Button>
               </>
             )}
           </div>
+
+          <SlideOver open={rejectOpen} title="Confirmar rechazo de la propuesta"
+            onClose={() => !busy && setRejectOpen(false)}>
+            <p className="slideover-warn">
+              Vas a <strong>rechazar</strong> la propuesta de <strong>{selected.client_name}</strong>.
+              Esta decisión queda registrada en la bitácora de auditoría a nombre de{' '}
+              <strong>{advisor.trim() || '—'}</strong> y no puede deshacerse.
+            </p>
+            <FieldLabel>Justificación del rechazo (obligatoria)</FieldLabel>
+            <Input as="textarea" rows="4" data-testid="reject-justification" value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Explica por qué se rechaza la propuesta…" />
+            <div className="btn-row">
+              <Button variant="danger" data-testid="btn-confirmar-rechazo"
+                disabled={busy || !notes.trim()}
+                onClick={() => decide('rechazar')}>
+                {label('rechazar', 'Confirmar rechazo')}
+              </Button>
+              <Button variant="ghost" disabled={busy}
+                onClick={() => setRejectOpen(false)}>Cancelar</Button>
+            </div>
+          </SlideOver>
         </>
       ) : (
         <DecisionNote decision={selected.decision} showRulesVersion />

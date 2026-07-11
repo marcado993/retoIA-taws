@@ -37,7 +37,12 @@ export default function Treemap({ allocation }) {
     <div data-testid="treemap">
       <svg viewBox="0 0 420 230" className="treemap">
         {tiles.map(t => (
-          <g key={t.ticker}>
+          // Interactivo (spec §2): cada tile revela nombre · clase · % exacto al
+          // pasar el ratón (<title> nativo, también leído por lectores de pantalla),
+          // así los tiles chicos sin etiqueta visible siguen siendo consultables.
+          <g key={t.ticker} className="tm-tile" tabIndex={0}
+            role="img" aria-label={`${t.ticker} ${t.name}: ${t.weight}% · ${t.asset_class}`}>
+            <title>{`${t.ticker} · ${t.name} — ${t.weight}% · ${t.asset_class}`}</title>
             <rect x={t.x + 2} y={t.y + 2} width={Math.max(t.w - 4, 1)} height={Math.max(t.h - 4, 1)}
               rx="10" fill={CLASS_COLORS[t.asset_class] || '#e7e5df'} />
             {t.w > 58 && t.h > 44 && (

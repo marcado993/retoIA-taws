@@ -1,22 +1,54 @@
 import Chip from '../atoms/Chip.jsx'
 import StatusChip from '../molecules/StatusChip.jsx'
 import MetricTile from '../molecules/MetricTile.jsx'
+import BigNumber from '../molecules/BigNumber.jsx'
 import DecisionNote from '../molecules/DecisionNote.jsx'
 import AgentBubble from '../molecules/AgentBubble.jsx'
 import InstrumentLogo from '../molecules/InstrumentLogo.jsx'
 import Treemap from './Treemap.jsx'
+
+// Traducción de la "caja negra" (spec §2): en vez de un párrafo denso, se responde
+// "¿Por qué esta diversificación?" con viñetas cortas derivadas de los propios datos
+// de la propuesta (clases de activo, dominante, riesgo). Es explicación, no promesa.
+function buildReasons(proposal, profileLabel) {
+  const alloc = proposal.allocation
+  const classes = [...new Set(alloc.map(a => a.asset_class))]
+  const top = [...alloc].sort((a, b) => b.weight - a.weight)[0]
+  const byClass = {}
+  alloc.forEach(a => { byClass[a.asset_class] = (byClass[a.asset_class] || 0) + a.weight })
+  const domClass = Object.entries(byClass).sort((a, b) => b[1] - a[1])[0]
+
+  return [
+    `Se reparte en ${classes.length} clases de activo distintas para no depender de un solo mercado.`,
+    `Coherente con tu perfil ${profileLabel}: ${domClass[0].toLowerCase()} concentra el ${domClass[1]}% de la cartera.`,
+    `La posición individual más grande (${top.ticker}, ${top.weight}%) se mantiene acotada para diluir el riesgo.`,
+    `Volatilidad estimada del ${proposal.metrics.volatility}% y riesgo ${proposal.metrics.risk_level}/5: el nivel que tu perfil declaró tolerar.`,
+  ]
+}
 
 // HU2: propuesta explicable — catálogo aprobado, % de asignación, riesgo esperado,
 // explicación legible y límites claros (no ejecuta órdenes, no promete rentabilidad).
 export default function ProposalCard({ record, market }) {
   const { proposal, status } = record
   const quotes = market?.quotes || {}
+  const profileLabel = record.profile_result?.profile?.label || '—'
+  const reasons = buildReasons(proposal, profileLabel)
 
   return (
     <div className="card">
       <div className="card-head">
         <h3>Propuesta de portafolio</h3>
         <StatusChip status={status} />
+      </div>
+
+      {/* Big Numbers (spec §2): el ojo busca certezas — riesgo y rendimiento primero. */}
+      <div className="big-numbers" data-testid="big-numbers">
+        <BigNumber label="Nivel de riesgo" value={profileLabel} tone="ink"
+          sub={`Riesgo ${proposal.metrics.risk_level}/5`} />
+        <BigNumber label="Rendimiento esperado*" value={`${proposal.metrics.expected_return}%`} tone="green"
+          sub="Anual, simulado" />
+        <BigNumber label="Volatilidad" value={`${proposal.metrics.volatility}%`} tone="ink"
+          sub="Variación esperada" />
       </div>
 
       {/* Límites del sistema, visibles de entrada (HU2 criterio 3 · Nielsen H1) */}
@@ -67,6 +99,16 @@ export default function ProposalCard({ record, market }) {
         <MetricTile label="Volatilidad" value={`${proposal.metrics.volatility}%`} />
         <MetricTile label="Riesgo" value={`${proposal.metrics.risk_level}/5`} />
         <MetricTile label="Clases de activo" value={proposal.metrics.diversification} />
+      </div>
+
+      {/* Caja negra → viñetas (spec §2): respuesta directa y escaneable. */}
+      <div className="diversification-why" data-testid="diversification-why">
+        <h4 className="diversification-why-title">¿Por qué esta diversificación?</h4>
+        <ul className="diversification-why-list">
+          {reasons.map((r, i) => (
+            <li key={i} className="diversification-why-item">{r}</li>
+          ))}
+        </ul>
       </div>
 
       <AgentBubble agent="Inversiones IA" icon="📊">
