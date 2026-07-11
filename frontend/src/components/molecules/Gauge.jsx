@@ -1,10 +1,13 @@
 // Gauge semicircular estilo "credit score" de la referencia.
 // Muestra el puntaje de riesgo 0-100 con arco degradado rojo→verde.
-export default function Gauge({ score, label }) {
+// Interactivo: al pasar el ratón revela el detalle (puntaje + perfil) vía <title>
+// nativo y el marcador crece, coherente con los hovers del resto de gráficos.
+export default function Gauge({ score, label, tooltip }) {
   const cx = 130, cy = 125, r = 95
   const angle = Math.PI * (1 - score / 100) // 180° = 0, 0° = 100
   const dotX = cx + r * Math.cos(angle)
   const dotY = cy - r * Math.sin(angle)
+  const hint = tooltip || `Puntaje ${score}/100`
 
   const arc = (startPct, endPct) => {
     const a1 = Math.PI * (1 - startPct / 100)
@@ -15,7 +18,9 @@ export default function Gauge({ score, label }) {
   }
 
   return (
-    <svg viewBox="0 0 260 150" className="gauge">
+    <svg viewBox="0 0 260 150" className="gauge" role="img"
+      aria-label={hint}>
+      <title>{hint}</title>
       <defs>
         <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#f87171" />
@@ -27,7 +32,10 @@ export default function Gauge({ score, label }) {
         strokeLinecap="round" strokeDasharray="2 7" />
       <path d={arc(0, Math.max(score, 3))} fill="none" stroke="url(#gaugeGrad)"
         strokeWidth="14" strokeLinecap="round" strokeDasharray="2 7" />
-      <circle cx={dotX} cy={dotY} r="9" fill="#fff" stroke="#84cc16" strokeWidth="4" />
+      <circle className="gauge-dot" cx={dotX} cy={dotY} r="9" fill="#fff" stroke="#84cc16" strokeWidth="4" />
+      {/* Área invisible que abre el tooltip nativo del gauge al pasar el ratón. */}
+      <path className="gauge-hit" d={arc(0, 100)} stroke="transparent" strokeWidth="26"
+        strokeLinecap="round" fill="none" />
       <text x="30" y="145" className="gauge-tick">0</text>
       <text x="215" y="145" className="gauge-tick">100</text>
       <text x={cx} y={cy - 12} textAnchor="middle" className="gauge-score"

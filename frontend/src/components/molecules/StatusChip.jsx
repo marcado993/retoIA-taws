@@ -10,5 +10,7 @@ export const STATUS = {
 
 export default function StatusChip({ status }) {
   const { tone, label } = STATUS[status] || STATUS.pendiente
-  return <Chip tone={tone} data-testid="status-chip">{label}</Chip>
+  // `chip-status` añade un punto de color (CSS) antes del texto para reforzar
+  // el estado visualmente. El texto sigue siendo solo `label` (los tests lo exigen).
+  return <Chip tone={tone} className="chip-status" data-testid="status-chip">{label}</Chip>
 }

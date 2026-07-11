@@ -174,14 +174,101 @@ Este documento explica **qué** se cambió, **por qué** y **en qué archivos**.
 
 ---
 
+---
+
+## §5 · Componentes de visualización nuevos (independientes)
+
+> Estos dos componentes se crearon a pedido y quedan **listos para integrar**; aún no
+> están montados en ninguna página. Verificados visualmente en un banco de pruebas
+> temporal (`/uxlab`, ya eliminado): render, tooltip y posicionamiento correctos.
+
+### 5.1 `FanChart.jsx` — Cono de incertidumbre (proyección)
+- **Qué:** proyección de inversión en el tiempo con Recharts. `<Area>` pinta la franja
+  pesimista→optimista (gradiente verde muy tenue vía `<defs>`, sin bordes) y `<Line>`
+  marca el escenario **esperado** (verde oscuro, más grueso). Tooltip con los 3
+  escenarios formateados como **USD**. Minimalista, sin leyenda.
+- **Detalle técnico:** Recharts pinta la banda pasando al `<Area>` un `dataKey` cuyo valor
+  es el par `[pesimista, optimista]`; se calcula `band: [pessimistic, optimistic]` a partir
+  de las props. Contenedor `w-full h-64` responsivo con `ResponsiveContainer`.
+- **Dependencia nueva:** `recharts@^2.15` (agregada a `package.json`).
+- **Archivo:** `src/components/molecules/FanChart.jsx` (`'use client'`).
+
+### 5.2 `RiskBulletChart.jsx` — Termómetro de riesgo
+- **Qué:** barra lineal segmentada por perfiles (solo HTML + Tailwind, sin librerías).
+  Segmentos con ancho en % por `range.max`, marcador (círculo oscuro con anillo blanco)
+  posicionado dinámicamente en `left: ${score}%`, globo **"Tu Perfil: [label]"** que se
+  mueve con el marcador y etiquetas de zona con `justify-between`.
+- **Detalle técnico:** `score` se clampa a `[0,100]`; el ancho de cada segmento es
+  `range.max - topeAnterior`. Sombras suaves (`shadow-sm`), tipografía gris (`text-gray-600`).
+- **Archivo:** `src/components/molecules/RiskBulletChart.jsx`.
+
+---
+
+---
+
+## §6 · Tipografía, hovers y panel del asesor (iteración 2)
+
+### 6.1 Tipografía temática de inversión
+- **Qué:** nuevo pairing tipográfico — **Space Grotesk** para display/cifras y
+  **Plus Jakarta Sans** para el cuerpo. Se añadieron **números tabulares** (`tabular-nums`)
+  a montos, porcentajes y puntajes, y ajustes finos de `letter-spacing`.
+- **Por qué:** Space Grotesk aporta un carácter geométrico "financiero-tech" y alinea las
+  cifras; Plus Jakarta Sans (intención original del diseño) da un cuerpo premium legible.
+- **Archivos:** `src/styles.css` (`@import`, `--font-sans`, `--font-display`, reglas de
+  cifras), `tailwind.config.js` (`fontFamily`).
+
+### 6.2 Hover informativo en todos los gráficos
+- **Qué:** el **Gauge** de riesgo ahora revela su detalle al pasar el ratón (tooltip nativo
+  "Puntaje X/100 · Perfil …" + el marcador crece). Junto con Donut, Treemap, FanChart y el
+  nuevo gráfico del asesor, **todos** los gráficos responden al hover mostrando su info.
+- **Archivos:** `src/components/molecules/Gauge.jsx` (`<title>` + `.gauge-hit` + `.gauge-dot`),
+  `src/components/organisms/HeroPanel.jsx` (prop `tooltip`), `styles.css`.
+
+### 6.3 Panel del asesor — estados intuitivos
+- **Qué:**
+  - Se agregaron los **colores de chip** que faltaban en el CSS activo (`.chip-*`), de modo
+    que los estados se distinguen por color (amarillo=pendiente, verde=aprobada,
+    rojo=rechazada) + un **punto de estado** antes del texto (`chip-status`).
+  - **Filtro segmentado** en la cola (Todas / Pendientes / Aprobadas / Rechazadas) con
+    contadores.
+  - **Borde izquierdo semántico** en cada fila según su estado.
+- **Por qué:** el asesor identifica de un vistazo qué está pendiente, aprobado o rechazado,
+  y puede aislar cada grupo.
+- **Archivos:** `src/components/molecules/StatusChip.jsx`, `src/components/molecules/QueueRow.jsx`,
+  `src/components/organisms/AdvisorQueue.jsx` (filtro), `styles.css`.
+
+### 6.4 Panel del asesor — gráfico de estadísticas
+- **Qué:** tarjeta **"Panorama de tus asesorados"** con contadores por estado (colores
+  semánticos) y un **gráfico de barras (Recharts)** de asesorados por perfil de riesgo,
+  con tooltip al hover.
+- **Por qué:** da al asesor una vista rápida y útil de su cartera.
+- **Archivos:** `src/components/organisms/AdvisorStats.jsx` (**nuevo**),
+  `src/components/pages/AdvisorPage.jsx`, `styles.css`.
+
+### 6.5 Panel del asesor — skeleton del detalle sin selección
+- **Qué:** cuando el asesor aún no eligió ninguna revisión, el panel derecho muestra un
+  **skeleton** que imita el resumen e invita a seleccionar un caso, en vez de un vacío.
+- **Archivos:** `src/components/molecules/AdvisorDetailSkeleton.jsx` (**nuevo**),
+  `src/components/pages/AdvisorPage.jsx`, `styles.css`.
+
+> Verificado: 7/7 e2e en verde y comprobación visual en navegador (tipografía, hover del
+> gauge y del gráfico de barras, filtros, chips de estado y skeleton del detalle).
+
+---
+
 ## Archivos nuevos
 ```
 src/components/molecules/InfoTooltip.jsx
 src/components/molecules/BigNumber.jsx
 src/components/molecules/ProposalSkeleton.jsx
+src/components/molecules/FanChart.jsx             (§5 · requiere recharts)
+src/components/molecules/RiskBulletChart.jsx      (§5)
+src/components/molecules/AdvisorDetailSkeleton.jsx (§6)
 src/components/organisms/SlideOver.jsx
+src/components/organisms/AdvisorStats.jsx          (§6 · requiere recharts)
 frontend/CAMBIOS_UX.md   (este documento)
 ```
+Dependencia añadida: `recharts` (en `package.json` / `package-lock.json`).
 
 ## Archivos modificados
 ```
