@@ -1,0 +1,129 @@
+{
+  "version": "2.0.0",
+  "disclaimer": "Catálogo aprobado de ETFs reales listados en bolsas de EE.UU., usado solo con fines demostrativos. Los retornos esperados son estimaciones simuladas de largo plazo, no promesas de rentabilidad. El sistema no ejecuta órdenes.",
+  "instruments": [
+    {
+      "ticker": "BIL",
+      "name": "SPDR Bloomberg 1-3 Month T-Bill ETF",
+      "issuer": "State Street (SPDR)",
+      "logo_domain": "ssga.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Efectivo y equivalentes",
+      "risk_level": 1,
+      "expected_return": 4.4,
+      "volatility": 0.4,
+      "description": "Letras del Tesoro de EE.UU. a 1-3 meses. Máxima liquidez y mínima volatilidad."
+    },
+    {
+      "ticker": "AGG",
+      "name": "iShares Core U.S. Aggregate Bond ETF",
+      "issuer": "BlackRock (iShares)",
+      "logo_domain": "blackrock.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Renta fija (bonos)",
+      "risk_level": 2,
+      "expected_return": 4.6,
+      "volatility": 5.5,
+      "description": "Bonos estadounidenses de grado de inversión: gobierno, corporativos e hipotecarios."
+    },
+    {
+      "ticker": "BND",
+      "name": "Vanguard Total Bond Market ETF",
+      "issuer": "Vanguard",
+      "logo_domain": "vanguard.com",
+      "exchange": "Nasdaq",
+      "asset_class": "Renta fija (bonos)",
+      "risk_level": 2,
+      "expected_return": 4.5,
+      "volatility": 5.6,
+      "description": "Todo el mercado de bonos de EE.UU. con grado de inversión, muy diversificado."
+    },
+    {
+      "ticker": "SPY",
+      "name": "SPDR S&P 500 ETF Trust",
+      "issuer": "State Street (SPDR)",
+      "logo_domain": "ssga.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Renta variable EE.UU.",
+      "risk_level": 4,
+      "expected_return": 9.5,
+      "volatility": 15.0,
+      "description": "Las 500 empresas más grandes de EE.UU. El índice de referencia mundial."
+    },
+    {
+      "ticker": "QQQ",
+      "name": "Invesco QQQ Trust (Nasdaq-100)",
+      "issuer": "Invesco",
+      "logo_domain": "invesco.com",
+      "exchange": "Nasdaq",
+      "asset_class": "Renta variable EE.UU.",
+      "risk_level": 5,
+      "expected_return": 11.0,
+      "volatility": 20.0,
+      "description": "Las 100 mayores empresas tecnológicas y de crecimiento del Nasdaq."
+    },
+    {
+      "ticker": "EFA",
+      "name": "iShares MSCI EAFE ETF",
+      "issuer": "BlackRock (iShares)",
+      "logo_domain": "blackrock.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Renta variable internacional",
+      "risk_level": 4,
+      "expected_return": 7.5,
+      "volatility": 16.0,
+      "description": "Acciones de mercados desarrollados de Europa, Asia y Oceanía."
+    },
+    {
+      "ticker": "VNQ",
+      "name": "Vanguard Real Estate ETF",
+      "issuer": "Vanguard",
+      "logo_domain": "vanguard.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Bienes raíces (REITs)",
+      "risk_level": 4,
+      "expected_return": 8.0,
+      "volatility": 18.0,
+      "description": "Fideicomisos de inversión inmobiliaria de EE.UU.: oficinas, vivienda, centros de datos."
+    },
+    {
+      "ticker": "GLD",
+      "name": "SPDR Gold Shares",
+      "issuer": "State Street (SPDR)",
+      "logo_domain": "ssga.com",
+      "exchange": "NYSE Arca",
+      "asset_class": "Alternativos (oro)",
+      "risk_level": 3,
+      "expected_return": 6.0,
+      "volatility": 14.0,
+      "description": "Oro físico. Diversificador clásico frente a inflación y crisis."
+    }
+  ],
+  "model_portfolios": {
+    "conservador": [
+      { "ticker": "BIL", "weight": 20 },
+      { "ticker": "AGG", "weight": 35 },
+      { "ticker": "BND", "weight": 20 },
+      { "ticker": "SPY", "weight": 15 },
+      { "ticker": "GLD", "weight": 10 }
+    ],
+    "moderado": [
+      { "ticker": "BIL", "weight": 10 },
+      { "ticker": "AGG", "weight": 20 },
+      { "ticker": "BND", "weight": 10 },
+      { "ticker": "SPY", "weight": 25 },
+      { "ticker": "EFA", "weight": 15 },
+      { "ticker": "VNQ", "weight": 10 },
+      { "ticker": "GLD", "weight": 10 }
+    ],
+    "agresivo": [
+      { "ticker": "BIL", "weight": 5 },
+      { "ticker": "AGG", "weight": 10 },
+      { "ticker": "SPY", "weight": 30 },
+      { "ticker": "QQQ", "weight": 20 },
+      { "ticker": "EFA", "weight": 15 },
+      { "ticker": "VNQ", "weight": 10 },
+      { "ticker": "GLD", "weight": 10 }
+    ]
+  }
+}

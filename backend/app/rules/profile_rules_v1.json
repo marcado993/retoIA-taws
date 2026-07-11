@@ -1,0 +1,124 @@
+{
+  "version": "1.0.0",
+  "published": "2026-07-11",
+  "name": "Reglas de perfilamiento de riesgo",
+  "description": "Reglas visibles y versionadas para calcular el perfil preliminar del inversionista. El puntaje se normaliza de 0 a 100 y se aplican reglas de tope (knockout) que protegen al usuario.",
+  "scoring_formula": "score = 100 * suma(peso_q * (puntos_q - 1) / 3) / suma(pesos)",
+  "questions": [
+    {
+      "id": "objetivo",
+      "weight": 20,
+      "text": "¿Cuál es tu objetivo principal al invertir?",
+      "help": "Define qué buscas lograr con tu dinero.",
+      "options": [
+        { "value": "preservar", "label": "Preservar mi capital, evitar pérdidas", "points": 1 },
+        { "value": "ingresos", "label": "Generar ingresos estables", "points": 2 },
+        { "value": "balanceado", "label": "Crecimiento balanceado con riesgo moderado", "points": 3 },
+        { "value": "crecimiento", "label": "Maximizar el crecimiento a largo plazo", "points": 4 }
+      ]
+    },
+    {
+      "id": "horizonte",
+      "weight": 20,
+      "text": "¿En cuánto tiempo necesitarás este dinero?",
+      "help": "El horizonte determina cuánta volatilidad puedes absorber.",
+      "options": [
+        { "value": "corto", "label": "Menos de 1 año", "points": 1 },
+        { "value": "medio_corto", "label": "Entre 1 y 3 años", "points": 2 },
+        { "value": "medio", "label": "Entre 3 y 7 años", "points": 3 },
+        { "value": "largo", "label": "Más de 7 años", "points": 4 }
+      ]
+    },
+    {
+      "id": "reaccion",
+      "weight": 25,
+      "text": "Si tu portafolio cayera 20% en un mes, ¿qué harías?",
+      "help": "Mide tu tolerancia emocional real ante pérdidas.",
+      "options": [
+        { "value": "vender_todo", "label": "Vendería todo para no perder más", "points": 1 },
+        { "value": "vender_parte", "label": "Vendería una parte", "points": 2 },
+        { "value": "mantener", "label": "Mantendría mi posición", "points": 3 },
+        { "value": "comprar", "label": "Compraría más aprovechando el precio", "points": 4 }
+      ]
+    },
+    {
+      "id": "experiencia",
+      "weight": 10,
+      "text": "¿Cuál es tu experiencia previa invirtiendo?",
+      "help": "La experiencia influye en la complejidad de instrumentos sugeridos.",
+      "options": [
+        { "value": "ninguna", "label": "Ninguna, es mi primera vez", "points": 1 },
+        { "value": "basica", "label": "Básica: cuentas de ahorro o depósitos a plazo", "points": 2 },
+        { "value": "intermedia", "label": "Intermedia: fondos mutuos o bonos", "points": 3 },
+        { "value": "avanzada", "label": "Avanzada: acciones, ETFs o derivados", "points": 4 }
+      ]
+    },
+    {
+      "id": "ingresos",
+      "weight": 10,
+      "text": "¿Qué tan estables son tus ingresos mensuales?",
+      "help": "Ingresos estables permiten asumir más riesgo de mercado.",
+      "options": [
+        { "value": "inestables", "label": "Variables e impredecibles", "points": 1 },
+        { "value": "algo_estables", "label": "Algo variables", "points": 2 },
+        { "value": "estables", "label": "Estables", "points": 3 },
+        { "value": "muy_estables", "label": "Muy estables y con capacidad de ahorro", "points": 4 }
+      ]
+    },
+    {
+      "id": "emergencia",
+      "weight": 15,
+      "text": "¿Cuentas con un fondo de emergencia?",
+      "help": "Sin colchón de liquidez, no es prudente asumir riesgo alto.",
+      "options": [
+        { "value": "no", "label": "No tengo fondo de emergencia", "points": 1 },
+        { "value": "parcial", "label": "Cubre menos de 3 meses de gastos", "points": 2 },
+        { "value": "tres_meses", "label": "Cubre entre 3 y 6 meses", "points": 3 },
+        { "value": "seis_meses", "label": "Cubre más de 6 meses", "points": 4 }
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "conservador",
+      "label": "Conservador",
+      "min_score": 0,
+      "max_score": 29,
+      "description": "Prioriza la preservación del capital. Acepta rendimientos menores a cambio de baja volatilidad."
+    },
+    {
+      "id": "moderado",
+      "label": "Moderado",
+      "min_score": 30,
+      "max_score": 69,
+      "description": "Busca equilibrio entre crecimiento y estabilidad. Tolera volatilidad media en el corto plazo."
+    },
+    {
+      "id": "agresivo",
+      "label": "Agresivo",
+      "min_score": 70,
+      "max_score": 100,
+      "description": "Prioriza el crecimiento a largo plazo y tolera caídas significativas en el camino."
+    }
+  ],
+  "knockouts": [
+    {
+      "id": "horizonte_corto",
+      "condition": "horizonte == 'corto'",
+      "cap_profile": "conservador",
+      "reason": "Con un horizonte menor a 1 año no es prudente exponerse a volatilidad de mercado, sin importar la tolerancia declarada."
+    },
+    {
+      "id": "sin_fondo_emergencia",
+      "condition": "emergencia == 'no'",
+      "cap_profile": "moderado",
+      "reason": "Sin fondo de emergencia, una caída del mercado podría forzar ventas en el peor momento. Se limita el perfil a Moderado."
+    },
+    {
+      "id": "panico_ante_caida",
+      "condition": "reaccion == 'vender_todo'",
+      "cap_profile": "conservador",
+      "reason": "Quien vendería todo ante una caída de 20% materializaría la pérdida. La tolerancia emocional manda sobre el puntaje."
+    }
+  ]
+}

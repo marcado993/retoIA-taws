@@ -1,0 +1,7 @@
+node_modules/
+__pycache__/
+backend/app/data/db.json
+frontend/e2e/.e2e-db.json
+frontend/test-results/
+frontend/playwright-report/
+frontend/dist/
