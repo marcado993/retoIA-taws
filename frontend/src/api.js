@@ -24,7 +24,6 @@ export const api = {
       body: JSON.stringify({ client_name: clientName, answers, goal: goal || null }),
     }),
   listProposals: () => request('/proposals'),
-  suitabilityReportUrl: (id) => `${BASE}/proposals/${id}/report.pdf`,
   decide: (id, payload) =>
     request(`/proposals/${id}/decision`, {
       method: 'POST',
