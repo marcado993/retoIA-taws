@@ -490,3 +490,52 @@ def _try_llm_explanation(profile_result: dict, allocation: list, metrics: dict) 
         f"Métricas: {json.dumps(metrics, ensure_ascii=False)}"
     )
     return _call_gemini(prompt, max_tokens=500)
+
+
+# ── Narrativa IA para el Análisis de Mercado (pestaña "Diagnóstico de Riesgo") ──
+# Distinta de `_market_narrative`: esa alinea una PROPUESTA concreta con el
+# mercado; esta resume el estado GENERAL del mercado/noticias del día, sin
+# depender de que el cliente ya tenga una propuesta. Las alertas, ajustes
+# sugeridos y principios de inversión de esa pestaña siguen siendo 100%
+# determinísticos (news_scraper._classify_themes) — Gemini solo redacta el
+# resumen en prosa, con el mismo verificador anti-alucinación de siempre.
+
+def build_market_insight_narrative(profile_label: str | None, quotes: dict,
+                                    market_mood: dict, themes: dict) -> tuple[str | None, str, list]:
+    """Devuelve (texto o None, fuente, eventos). Texto None = "usa el resumen
+    determinístico existente" (fallback sin key, sin red, o verificador rechaza)."""
+    events: list = []
+    llm_text = _try_llm_insight_narrative(profile_label, quotes, market_mood, themes)
+    if llm_text:
+        extra = [q.get("change_pct") for q in (quotes or {}).values() if q.get("change_pct") is not None]
+        extra += [market_mood.get("pos_pct"), market_mood.get("neg_pct")]
+        ok, reason = _verify_llm_output(llm_text, {}, extra_allowed=extra)
+        if ok and _tickers_within_catalog(llm_text):
+            return llm_text, _gemini_model(), events
+        ev = _guardrail_event("analisis-mercado:resumen", reason or "ticker fuera del catálogo aprobado", llm_text)
+        _log_guardrail(ev)
+        events.append(ev)
+    return None, "plantilla-determinista", events
+
+
+def _try_llm_insight_narrative(profile_label: str | None, quotes: dict,
+                                market_mood: dict, themes: dict) -> str | None:
+    theme_labels = [_THEME_LABELS.get(k, k) for k, active in (themes or {}).items() if active]
+    movers = [{"ticker": tk, "cambio_pct": q.get("change_pct")}
+              for tk, q in (quotes or {}).items() if q.get("change_pct") is not None]
+    prompt = (
+        "Eres el analista de mercado de InvertIA. En 2-3 frases y en español claro, "
+        "resume el estado del mercado y las noticias de HOY para un inversionista"
+        + (f" con perfil {profile_label}" if profile_label else "") + ". Reglas estrictas: "
+        "(1) usa SOLO los tickers listados abajo, no inventes instrumentos; "
+        "(2) usa SOLO las cifras % provistas, no inventes números; "
+        "(3) NO prometas rentabilidad ni uses palabras como 'garantiza'; "
+        "(4) NO sugieras montos ni pesos de portafolio — eso ya lo calcula el "
+        "sistema por separado; (5) sé descriptivo del panorama, no prescriptivo.\n"
+        f"Estado de ánimo del mercado: {market_mood.get('mood', 'Neutral')} "
+        f"({market_mood.get('pos_pct', 0)}% de noticias positivas, "
+        f"{market_mood.get('neg_pct', 0)}% negativas)\n"
+        f"Temas activos en los titulares: {json.dumps(theme_labels, ensure_ascii=False)}\n"
+        f"Cotizaciones de hoy: {json.dumps(movers, ensure_ascii=False)}"
+    )
+    return _call_gemini(prompt, max_tokens=280)

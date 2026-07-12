@@ -515,11 +515,19 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .mood-neutral { background: var(--slate-bg); color: var(--ink-mid); border: 1px solid var(--border); }
 .mood-detail { font-size: 12.5px; color: var(--muted); }
 
-.ai-summary {
-  font-size: 14px; line-height: 1.65; color: var(--ink-mid);
-  margin-bottom: 16px; padding: 14px 18px;
+.ai-summary-wrap {
+  position: relative; margin-bottom: 16px;
   background: var(--slate-bg); border-radius: var(--radius-card);
   border-left: 4px solid var(--green);
+}
+.ai-summary {
+  font-size: 14px; line-height: 1.65; color: var(--ink-mid);
+  padding: 14px 90px 14px 18px;
+}
+.ai-summary-badge { position: absolute; top: 12px; right: 14px; white-space: nowrap; }
+@media (max-width: 480px) {
+  .ai-summary { padding: 34px 18px 14px; }
+  .ai-summary-badge { top: 8px; right: 12px; }
 }
 
 /* Market context chips */

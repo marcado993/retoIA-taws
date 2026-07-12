@@ -544,3 +544,74 @@ class TestAuditoriaAntialucinacion:
         rechazos = [a for a in audit if a["action"] == "antialucinacion_rechazo"]
         assert rechazos, "El rechazo debe quedar persistido en el log de auditoría"
         assert "descartada" in rechazos[0]["detail"].lower()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C10: Google Gemini en el Análisis de Mercado (pestaña "Diagnóstico de Riesgo")
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestAnalisisMercadoGemini:
+    """El resumen de la pestaña Diagnóstico de Riesgo (news_scraper.build_ai_insight)
+    ahora tiene una capa narrativa Gemini además de las alertas 100% determinísticas.
+    Mismo contrato que el resto del sistema: verificador anti-alucinación + fallback."""
+
+    def _news_and_quotes(self):
+        from app import news_scraper
+        news = news_scraper._mock_news()
+        quotes = {"SPY": {"change_pct": 1.2}, "GLD": {"change_pct": -0.5}}
+        return news_scraper, news, quotes
+
+    def test_sin_key_usa_resumen_determinista(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert result["summary"]  # la plantilla siempre produce algo
+        assert result["guardrail_events"] == []
+
+    def test_gemini_valido_reemplaza_el_resumen(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        texto = "SPY sube 1.2% hoy mientras GLD retrocede 0.5%; los titulares muestran un tono mixto."
+        monkeypatch.setattr(inversiones_ia, "_call_gemini", lambda *a, **k: texto)
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary"] == texto
+        assert result["summary_source"].startswith("gemini")
+        assert result["guardrail_events"] == []
+
+    def test_gemini_alucinado_cae_a_plantilla_y_registra_evento(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "Este mercado garantiza ganancias del 50% este mes.")
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert len(result["guardrail_events"]) == 1
+        assert result["guardrail_events"][0]["agent"] == "analisis-mercado:resumen"
+
+    def test_gemini_ticker_inventado_se_rechaza(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "NVDA lidera las alzas del mercado hoy con fuerza inusual.")
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert len(result["guardrail_events"]) == 1
+
+    def test_evento_de_analisis_mercado_se_persiste_en_auditoria(self, monkeypatch, tmp_path):
+        from app import store
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "Rentabilidad asegurada del 30% garantizada este trimestre.")
+        monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
+        monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
+
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["guardrail_events"]
+
+        for ev in result["guardrail_events"]:
+            store.add_audit("antialucinacion_rechazo", f"verificador:{ev['agent']}",
+                            "analisis-mercado", "n/d",
+                            f"Salida del LLM descartada — {ev['reason']}. Fragmento: «{ev['snippet']}»")
+        audit = store.audit_log()
+        rechazos = [a for a in audit if a["action"] == "antialucinacion_rechazo"]
+        assert rechazos
+        assert rechazos[0]["proposal_id"] == "analisis-mercado"
