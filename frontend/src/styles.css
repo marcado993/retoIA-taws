@@ -1403,3 +1403,237 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   background: var(--blue-soft); color: var(--blue); border: 1px solid rgba(37,99,235,0.2);
 }
 .market-context-foot { font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   RESPONSIVIDAD — Mobile & Tablet
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── TopBar: collapsar a stack vertical en pantallas angostas ──────────── */
+@media (max-width: 768px) {
+  .topbar {
+    flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 8px;
+  }
+  .topbar-left { width: 100%; justify-content: space-between; }
+  .nav-pills {
+    width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    gap: 2px; padding-bottom: 2px;
+  }
+  .nav-pill { padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+  .nav-pill.active::after { bottom: -10px; }
+  .avatar { display: none; }
+}
+
+/* ── Page container: padding reducido en móvil ─────────────────────────── */
+@media (max-width: 640px) {
+  .page { padding: 0 12px 32px; }
+}
+
+/* ── Single Panel (asesor, auditoría, reglas): full width en móvil ──────── */
+@media (max-width: 640px) {
+  .single-panel { padding: 0; }
+}
+
+/* ── Stat grid: 1 columna en móvil ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .stat-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Advisor stat tiles: 1 columna en móvil ────────────────────────────── */
+@media (max-width: 520px) {
+  .advisor-stat-tiles { grid-template-columns: 1fr; }
+}
+
+/* ── AI Insight header: wrap en móvil ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .ai-insight-header { flex-wrap: wrap; padding: 14px 16px; }
+  .ai-insight-controls { width: 100%; justify-content: flex-end; }
+  .ai-panel-body { padding: 16px; }
+}
+
+/* ── Audit table: texto más compacto en móvil ──────────────────────────── */
+@media (max-width: 640px) {
+  .audit-table th, .audit-table td { padding: 8px 8px; font-size: 11px; }
+  .audit-detail { max-width: 160px; }
+}
+
+/* ── Trust bar: 1 columna en móvil pequeño ─────────────────────────────── */
+@media (max-width: 520px) {
+  .trust-bar { grid-template-columns: 1fr; }
+  .trust-stat { border-right: 0; border-bottom: 1px solid var(--border); padding: 16px 20px; }
+  .trust-stat:last-child { border-bottom: none; }
+}
+
+/* ── Review rows: wrap en móvil ────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .review-row { flex-wrap: wrap; gap: 6px; }
+}
+
+/* ── Queue rows: más compactas en móvil ────────────────────────────────── */
+@media (max-width: 640px) {
+  .queue-row { padding: 10px; }
+  .queue-name { font-size: 13px; }
+}
+
+/* ── Steps row: 1 columna en móvil ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .steps-row { flex-direction: column; }
+  .step { min-width: unset; }
+}
+
+/* ── Landing: spacing reducido en móvil ────────────────────────────────── */
+@media (max-width: 640px) {
+  .landing { gap: 28px; }
+  .section-title { font-size: 20px; }
+}
+
+/* ── Portfolio comparison: métricas 2 cols en tablet ──────────────────── */
+@media (max-width: 900px) {
+  .portfolio-card .metric-row { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Prevenir desbordamiento horizontal global ─────────────────────────── */
+html, body { overflow-x: hidden; }
+.page { overflow-x: hidden; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   RULES REDESIGN — Fintech-grade rules explorer
+   ════════════════════════════════════════════════════════════════════════ */
+.rules-redesign { display: flex; flex-direction: column; gap: 24px; max-width: 900px; margin: 0 auto; }
+
+.rules-header {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+  padding-bottom: 20px; border-bottom: 2px solid var(--border);
+}
+.rules-header-text { flex: 1; }
+.rules-main-title { font-size: 24px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; margin-bottom: 6px; }
+.rules-main-sub { font-size: 14px; color: var(--ink-mid); line-height: 1.55; max-width: 600px; }
+
+.rules-methodology {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--blue-soft); border: 1px solid rgba(37,99,235,0.15);
+  border-left: 4px solid var(--blue); border-radius: var(--radius-card);
+  padding: 14px 18px;
+}
+.rules-methodology-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.rules-methodology p { font-size: 13px; color: var(--ink-mid); line-height: 1.55; }
+
+.rules-formula-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 18px 20px; box-shadow: var(--shadow-card);
+}
+.rules-formula-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  font-size: 14px; color: var(--ink);
+}
+.rules-formula-icon { font-size: 18px; }
+.rules-formula-card .formula { margin-bottom: 0; }
+
+/* Section headers */
+.rules-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em;
+  margin-bottom: 14px;
+}
+.rules-section-icon { font-size: 20px; }
+.rules-section-desc { font-size: 13px; color: var(--ink-mid); line-height: 1.55; margin: -8px 0 14px; }
+
+/* Accordion */
+.rules-accordion-list { display: flex; flex-direction: column; gap: 8px; }
+.rules-accordion {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  overflow: hidden; transition: var(--transition); box-shadow: var(--shadow-card);
+}
+.rules-accordion.open { border-color: var(--green); box-shadow: var(--shadow-hover); }
+.rules-accordion-trigger {
+  width: 100%; display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; border: 0; background: transparent; cursor: pointer;
+  font-family: inherit; transition: var(--transition); gap: 12px;
+}
+.rules-accordion-trigger:hover { background: var(--slate-bg); }
+.rules-accordion-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rules-accordion-icon { font-size: 18px; flex-shrink: 0; }
+.rules-accordion-title {
+  font-size: 13.5px; font-weight: 700; color: var(--ink); text-align: left;
+  white-space: normal; line-height: 1.4;
+}
+.rules-accordion-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.rules-accordion-arrow {
+  font-size: 12px; color: var(--muted); transition: transform 0.2s ease;
+}
+.rules-accordion-arrow.open { transform: rotate(180deg); }
+.rules-accordion-body { padding: 0 18px 18px; border-top: 1px solid var(--border); }
+
+.rules-question-detail { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; }
+.rules-question-help { font-size: 13px; color: var(--ink-mid); line-height: 1.5; }
+.rules-question-source {
+  font-size: 11.5px; color: var(--muted); font-style: italic;
+  padding-left: 12px; border-left: 2px solid var(--border);
+}
+
+.rules-options-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;
+}
+.rules-option-card {
+  background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-sharp);
+  padding: 10px 12px;
+}
+.rules-option-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.rules-option-label { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+
+/* Profiles grid */
+.rules-profiles-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px;
+}
+.rules-profile-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 18px; box-shadow: var(--shadow-card); transition: var(--transition);
+}
+.rules-profile-card:hover { box-shadow: var(--shadow-hover); border-color: var(--green); }
+.rules-profile-icon {
+  font-size: 28px; width: 48px; height: 48px; flex-shrink: 0;
+  display: grid; place-items: center; background: var(--green-soft);
+  border-radius: var(--radius-card); border: 1px solid rgba(16,185,129,0.2);
+}
+.rules-profile-body { flex: 1; min-width: 0; }
+.rules-profile-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-bottom: 6px;
+}
+.rules-profile-head strong { font-size: 14px; color: var(--ink); }
+.rules-profile-desc { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+
+/* Knockouts */
+.rules-knockouts-list { display: flex; flex-direction: column; gap: 10px; }
+.rules-knockout-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--red-soft); border: 1px solid rgba(239,68,68,0.15);
+  border-left: 4px solid var(--red); border-radius: var(--radius-card);
+  padding: 14px 18px;
+}
+.rules-knockout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.rules-knockout-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.rules-knockout-body strong { font-size: 13.5px; color: #991b1b; }
+.rules-knockout-cap {
+  font-size: 12px; color: #7f1d1d; font-weight: 600;
+}
+.rules-knockout-cap em { font-style: normal; font-weight: 800; color: #991b1b; }
+.rules-knockout-body p { font-size: 12.5px; color: #7f1d1d; line-height: 1.5; }
+.rules-knockout-source { font-size: 11px; color: rgba(127,29,29,0.7); font-style: italic; }
+
+/* References */
+.rules-ref-list {
+  list-style: decimal; padding-left: 20px; display: flex; flex-direction: column; gap: 10px;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 18px 18px 18px 36px; box-shadow: var(--shadow-card);
+}
+.rules-ref-item { font-size: 13px; line-height: 1.5; color: var(--ink-mid); }
+.rules-ref-item a { color: var(--blue); text-decoration: none; font-weight: 500; }
+.rules-ref-item a:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .rules-header { flex-direction: column; }
+  .rules-main-title { font-size: 20px; }
+  .rules-profiles-grid { grid-template-columns: 1fr; }
+  .rules-options-grid { grid-template-columns: 1fr; }
+}
