@@ -13,6 +13,8 @@ Correr: cd backend && pytest tests/ -v
 import sys
 import os
 import json
+import urllib.request
+import urllib.error
 import pytest
 
 # Asegura que el paquete `app` sea importable desde la carpeta backend/
@@ -20,6 +22,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.agents import asesor_financiero, inversiones_ia
 from app.agents.inversiones_ia import _verify_llm_output, _template_explanation
+
+
+# ── Utilidades para mockear la API de Gemini sin depender de la red ────────────
+def _gemini_payload(text: str) -> dict:
+    """Respuesta con la forma real de la API generateContent de Gemini."""
+    return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
+
+
+class _FakeGeminiResp:
+    """Respuesta HTTP falsa usable como context manager (para json.load)."""
+    def __init__(self, payload: dict):
+        self._b = json.dumps(payload).encode()
+
+    def read(self, *a, **k):
+        return self._b
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -292,3 +315,123 @@ class TestHITLGate:
             # Limpiar
             os.environ.pop("ROBO_DB_PATH", None)
             store._db = {"proposals": {}, "audit": []}
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C6: Reglas de negocio financiero — diversificación (REGLAS.md §3.4) [Gap G1]
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestDiversificacion:
+    """Criterio 2 (ajuste al track): el backend hace cumplir las reglas de negocio
+    de aprobación/edición: ≥3 clases de activo y ningún instrumento >50%."""
+
+    def _alloc(self, pairs):
+        cat = inversiones_ia.load_catalog()
+        instruments = {i["ticker"]: i for i in cat["instruments"]}
+        return [{**instruments[t], "weight": w} for t, w in pairs]
+
+    def test_portafolio_diversificado_valido(self):
+        alloc = self._alloc([("BIL", 20), ("AGG", 30), ("SPY", 30), ("GLD", 20)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "moderado")
+        assert ok, reason
+
+    def test_menos_de_3_clases_falla(self):
+        # BIL (efectivo) + AGG/BND (renta fija) = solo 2 clases distintas
+        alloc = self._alloc([("BIL", 40), ("AGG", 30), ("BND", 30)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "moderado")
+        assert not ok
+        assert "3 clases" in reason
+
+    def test_instrumento_mayor_50_falla(self):
+        alloc = self._alloc([("SPY", 60), ("AGG", 25), ("GLD", 15)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "agresivo")
+        assert not ok
+        assert "50%" in reason and "SPY" in reason
+
+    def test_conservador_permite_concentrar_renta_fija(self):
+        # AGG (renta fija) al 60% se admite SOLO en perfil conservador (defensivo).
+        alloc = self._alloc([("AGG", 60), ("SPY", 25), ("GLD", 15)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "conservador")
+        assert ok, reason
+
+    def test_conservador_no_exime_renta_variable(self):
+        # SPY (renta variable) al 60% NO está exento aunque el perfil sea conservador.
+        alloc = self._alloc([("SPY", 60), ("AGG", 25), ("GLD", 15)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "conservador")
+        assert not ok
+
+    def test_ignora_pesos_cero(self):
+        alloc = self._alloc([("BIL", 0), ("AGG", 50), ("SPY", 30), ("GLD", 20)])
+        ok, reason = inversiones_ia.validate_diversification(alloc, "moderado")
+        assert ok, reason
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C7: Integración Google Gemini con mocks (nivel intermedio) [Gap G5 / P1]
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestGemini:
+    """Requisito de pruebas (nivel intermedio): mock de la API del LLM para probar
+    sin depender de su disponibilidad — camino feliz y fallback."""
+
+    def test_call_gemini_camino_feliz(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        payload = _gemini_payload("Explicación de prueba con retorno 7.2%.")
+        monkeypatch.setattr("urllib.request.urlopen",
+                            lambda *a, **k: _FakeGeminiResp(payload))
+        out = inversiones_ia._call_gemini("prompt de prueba")
+        assert out == "Explicación de prueba con retorno 7.2%."
+
+    def test_call_gemini_sin_key_devuelve_none(self, monkeypatch):
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        # No debe intentar red siquiera; si lo hiciera, fallaría el assert.
+        assert inversiones_ia._call_gemini("prompt") is None
+
+    def test_call_gemini_error_de_red_cae_a_none(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+        def _boom(*a, **k):
+            raise urllib.error.URLError("sin red")
+
+        monkeypatch.setattr("urllib.request.urlopen", _boom)
+        assert inversiones_ia._call_gemini("prompt") is None
+
+    def test_explain_usa_gemini_cuando_es_valido(self, monkeypatch):
+        texto = "Tu retorno esperado simulado es 7.2% con una volatilidad de 12.5%."
+        monkeypatch.setattr(inversiones_ia, "_call_gemini", lambda *a, **k: texto)
+        profile = {"profile": {"id": "moderado", "label": "Moderado", "description": "x"},
+                   "score": 50, "rules_version": "1.0.0"}
+        metrics = {"expected_return": 7.2, "volatility": 12.5, "risk_level": 3.0, "diversification": 4}
+        alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
+        text, source = inversiones_ia._explain(profile, alloc, metrics)
+        assert text == texto
+        assert source.startswith("gemini"), f"source esperado gemini*, obtenido {source}"
+
+    def test_explain_cae_a_plantilla_si_gemini_alucina(self, monkeypatch):
+        # Gemini devuelve una promesa de rentabilidad → el verificador la rechaza
+        # y el sistema cae a la plantilla determinística.
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "Retorno garantizado del 40% asegurado.")
+        profile = {"profile": {"id": "agresivo", "label": "Agresivo", "description": "x"},
+                   "score": 80, "rules_version": "1.0.0"}
+        metrics = {"expected_return": 9.0, "volatility": 16.0, "risk_level": 4.0, "diversification": 5}
+        alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
+        text, source = inversiones_ia._explain(profile, alloc, metrics)
+        assert source == "plantilla-determinista"
+
+    def test_build_proposal_incluye_market_context_con_gemini(self, monkeypatch):
+        # Camino feliz de extremo a extremo: con Gemini mockeado y señales de mercado,
+        # la propuesta trae market_context con fuente gemini.
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "SPY sube hoy y respalda la propuesta; el asesor decide.")
+        profile = asesor_financiero.evaluate_profile({
+            "reaccion": "mantener", "objetivo": "balanceado", "horizonte": "medio",
+            "emergencia": "tres_meses", "experiencia": "intermedia", "ingresos": "estables",
+        })
+        market = {"provider": "Test", "live": False,
+                  "quotes": {"SPY": {"change_pct": 1.5}, "AGG": {"change_pct": -0.2}}}
+        news = [{"title": "Rally tecnológico impulsa el Nasdaq", "sentiment": "positivo"}]
+        prop = inversiones_ia.build_proposal(profile, market=market, news=news)
+        assert prop["market_context"] is not None
+        assert prop["market_context"]["source"].startswith("gemini")

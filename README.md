@@ -53,8 +53,9 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --port 8000 --reload
 ```
 
-Opcional: `set ANTHROPIC_API_KEY=...` para que Claude redacte las explicaciones
-(sin key, usa la plantilla determinística con verificación anti-alucinación — la demo funciona igual).
+Opcional: `set GEMINI_API_KEY=...` para que **Google Gemini** redacte las explicaciones
+y el contexto de mercado (modelo configurable con `GEMINI_MODEL`, por defecto `gemini-2.0-flash`).
+Sin key, usa la plantilla determinística con verificación anti-alucinación — la demo funciona igual.
 
 ### Frontend (puerto 3000)
 

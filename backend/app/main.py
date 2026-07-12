@@ -80,7 +80,18 @@ def create_proposal(req: ProfileRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     goal = req.goal.model_dump() if req.goal else None
-    proposal = inversiones_ia.build_proposal(profile_result, goal=goal)
+    # Contexto de mercado + noticias para que la IA alinee la propuesta con las
+    # condiciones actuales (ambos con caché y fallback; nunca rompen el flujo).
+    try:
+        cat = inversiones_ia.load_catalog()
+        market = market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
+    except Exception:
+        market = None
+    try:
+        news = news_scraper.get_news()
+    except Exception:
+        news = None
+    proposal = inversiones_ia.build_proposal(profile_result, goal=goal, market=market, news=news)
     return store.create_proposal(req.client_name, profile_result, proposal)
 
 
@@ -115,6 +126,14 @@ def decide(pid: str, req: DecisionRequest):
         if unknown:
             raise HTTPException(status_code=422, detail=f"Instrumentos fuera del catálogo aprobado: {unknown}")
         edited = [{**instruments[l.ticker], "weight": l.weight} for l in req.edited_allocation if l.weight > 0]
+        # REGLAS.md §3.4: diversificación mínima (≥3 clases y ningún instrumento >50%).
+        record = store.get_proposal(pid)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+        profile_id = record["profile_result"]["profile"]["id"]
+        ok, reason = inversiones_ia.validate_diversification(edited, profile_id)
+        if not ok:
+            raise HTTPException(status_code=422, detail=reason)
     if req.action == "rechazar" and not req.notes.strip():
         raise HTTPException(status_code=422, detail="El rechazo requiere un motivo en las notas")
     try:

@@ -298,7 +298,9 @@ function AnalysisReport({ record, insight, market }) {
           <li><strong>Inversiones IA</strong> — construye la asignación desde el catálogo aprobado
             (determinístico) y redacta la explicación con{' '}
             <span className="ai-model-badge">
-              {proposal.explanation_source === 'claude-haiku-4-5' ? 'Claude Haiku 4.5' : 'plantilla determinística (sin LLM)'}
+              {proposal.explanation_source && proposal.explanation_source.startsWith('gemini')
+                ? `Google Gemini (${proposal.explanation_source})`
+                : 'plantilla determinística (sin LLM)'}
             </span>.</li>
           <li><strong>Análisis de mercado</strong> — noticias de RSS financiero real (con
             snapshot diferido si no hay red) y cotizaciones de Yahoo Finance; el estado de

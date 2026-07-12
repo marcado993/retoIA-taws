@@ -6,6 +6,7 @@ import Button from '../atoms/Button.jsx'
 import ErrorText from '../atoms/ErrorText.jsx'
 import AllocationRow from '../molecules/AllocationRow.jsx'
 import DecisionNote from '../molecules/DecisionNote.jsx'
+import MarketContextCard from '../molecules/MarketContextCard.jsx'
 import SlideOver from './SlideOver.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
 
@@ -55,6 +56,8 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
         {selected.profile_result.capped && ', limitado por regla de protección'}).</p>
       <h4 className="subhead">2 · Justificación de la IA</h4>
       <p className="explanation">{selected.proposal.explanation}</p>
+      {/* Alineación con noticias + mercado: contexto para la decisión del asesor. */}
+      <MarketContextCard marketContext={selected.proposal.market_context} />
       {selected.proposal.goal_fit && (
         <>
           <h4 className="subhead">3 · Meta financiera del cliente</h4>

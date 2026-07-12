@@ -4,6 +4,7 @@ import BigNumber from '../molecules/BigNumber.jsx'
 import DecisionNote from '../molecules/DecisionNote.jsx'
 import AgentBubble from '../molecules/AgentBubble.jsx'
 import InstrumentLogo from '../molecules/InstrumentLogo.jsx'
+import MarketContextCard from '../molecules/MarketContextCard.jsx'
 import Button from '../atoms/Button.jsx'
 import Treemap from './Treemap.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
@@ -75,6 +76,9 @@ export default function ProposalCard({ record, market }) {
       <AgentBubble agent="Inversiones IA">
         {proposal.explanation}
       </AgentBubble>
+
+      {/* Alineación IA con noticias + mercado (news → propuesta). */}
+      <MarketContextCard marketContext={proposal.market_context} />
 
       <p className="disclaimer" data-testid="disclaimer">{proposal.disclaimer}</p>
       <DecisionNote decision={record.decision} />
