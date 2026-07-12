@@ -766,6 +766,9 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
   border-radius: var(--radius-card); padding: 12px 16px;
   color: #064e3b; line-height: 1.5; border-left: 4px solid var(--green);
 }
+.advisor-report-action {
+  margin-top: 12px;
+}
 
 /* ── Historial de aprobados (dashboard de casos) ────────────────────────── */
 .history-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
@@ -874,6 +877,12 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
   background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-card);
 }
 .proposal-detail-hint { font-size: 12.5px; color: var(--ink-mid); font-weight: 500; }
+.proposal-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
 .proposal-detail-trigger .btn-ghost { margin: 0; padding: 8px 16px; font-size: 12.5px; }
 
 /* ── Holdings ── */

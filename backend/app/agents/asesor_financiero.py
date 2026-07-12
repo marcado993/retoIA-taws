@@ -44,26 +44,29 @@ def evaluate_profile(answers: dict) -> dict:
     if missing:
         raise ValueError(f"Faltan respuestas: {', '.join(missing)}")
 
-    total_weight = sum(q["weight"] for q in rules["questions"])
-    raw = 0.0
+    max_possible_points = sum(max(o["points"] for o in q["options"]) for q in rules["questions"])
+    obtained_points = 0
     breakdown = []
+    
     for q in rules["questions"]:
         option = next((o for o in q["options"] if o["value"] == answers[q["id"]]), None)
         if option is None:
             raise ValueError(f"Respuesta inválida para '{q['id']}': {answers[q['id']]}")
-        contribution = q["weight"] * (option["points"] - 1) / 3
-        raw += contribution
+        
+        obtained_points += option["points"]
+        q_max = max(o["points"] for o in q["options"])
+        
         breakdown.append({
             "question_id": q["id"],
             "question": q["text"],
             "answer": option["label"],
             "points": option["points"],
             "weight": q["weight"],
-            "contribution": round(100 * contribution / total_weight, 1),
-            "max_contribution": round(100 * q["weight"] / total_weight, 1),
+            "contribution": round(100 * option["points"] / max_possible_points, 1),
+            "max_contribution": round(100 * q_max / max_possible_points, 1),
         })
 
-    score = round(100 * raw / total_weight)
+    score = round(100 * obtained_points / max_possible_points)
 
     profile = next(
         p for p in rules["profiles"]

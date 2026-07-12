@@ -33,6 +33,7 @@ export const api = {
   confirmProposal: (id) => request(`/proposals/${id}/confirm`, { method: 'POST' }),
   discardProposal: (id) => request(`/proposals/${id}/discard`, { method: 'POST' }),
   listProposals: () => request('/proposals'),
+  suitabilityReportUrl: (id) => `${BASE}/proposals/${id}/report.pdf`,
   decide: (id, payload) =>
     request(`/proposals/${id}/decision`, {
       method: 'POST',
