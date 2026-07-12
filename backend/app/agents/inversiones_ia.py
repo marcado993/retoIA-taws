@@ -30,7 +30,7 @@ def load_catalog() -> dict:
         return json.load(f)
 
 
-def build_proposal(profile_result: dict) -> dict:
+def build_proposal(profile_result: dict, goal: dict | None = None) -> dict:
     """Construye la asignación desde el portafolio modelo del catálogo
     y calcula métricas agregadas de forma determinística."""
     catalog = load_catalog()
@@ -56,28 +56,71 @@ def build_proposal(profile_result: dict) -> dict:
         "risk_level": round(risk, 1),
         "diversification": len(allocation),
     }
-    explanation = _explain(profile_result, allocation, metrics)
+    goal_fit = _compute_goal_fit(goal, metrics)
+    explanation, explanation_source = _explain(profile_result, allocation, metrics)
 
     return {
         "catalog_version": catalog["version"],
         "profile_id": profile_id,
         "allocation": allocation,
         "metrics": metrics,
+        "goal_fit": goal_fit,
         "explanation": explanation,
+        "explanation_source": explanation_source,
         "disclaimer": DISCLAIMER,
     }
 
 
-def _explain(profile_result: dict, allocation: list, metrics: dict) -> str:
+def _compute_goal_fit(goal: dict | None, metrics: dict) -> dict | None:
+    """Compara la meta del cliente (monto, plazo, aporte mensual) contra el
+    retorno esperado del portafolio propuesto. Es un cálculo determinístico y
+    auditable, SIN afirmaciones ni estadísticas de asesoría: solo la brecha
+    entre lo que el cliente necesita y lo que la propuesta ofrece, para que el
+    asesor humano decida qué recomendar (HU3)."""
+    if not goal:
+        return None
+
+    amount = float(goal["target_amount"])
+    years = float(goal["target_years"])
+    monthly = float(goal["monthly_contrib"])
+    total_invested = monthly * 12 * years
+
+    if total_invested <= 0:
+        return None
+
+    if total_invested >= amount:
+        needed_return_pct = 0.0
+    else:
+        needed_return_pct = round(((amount - total_invested) / total_invested) / years * 100, 1)
+
+    portfolio_return_pct = metrics["expected_return"]
+    gap_pct = round(needed_return_pct - portfolio_return_pct, 1)
+
+    return {
+        "target_amount": amount,
+        "target_years": years,
+        "monthly_contrib": monthly,
+        "total_invested": round(total_invested, 2),
+        "needed_return_pct": needed_return_pct,
+        "portfolio_return_pct": portfolio_return_pct,
+        "gap_pct": gap_pct,
+        "on_track": gap_pct <= 0,
+    }
+
+
+def _explain(profile_result: dict, allocation: list, metrics: dict) -> tuple[str, str]:
+    """Devuelve (texto, fuente) — la fuente se muestra al usuario para que sepa
+    exactamente qué generó la explicación: transparencia real, no solo un
+    disclaimer genérico."""
     llm_text = _try_llm_explanation(profile_result, allocation, metrics)
     if llm_text:
         # CA-3g: Capa de verificación anti-alucinación
         is_valid, reason = _verify_llm_output(llm_text, metrics)
         if is_valid:
-            return llm_text
+            return llm_text, "claude-haiku-4-5"
         # LLM alucinado → log + fallback determinístico
         print(f"[ANTI-HALLUCINATION] LLM output rechazado: {reason}. Usando plantilla.")
-    return _template_explanation(profile_result, allocation, metrics)
+    return _template_explanation(profile_result, allocation, metrics), "plantilla-determinista"
 
 
 def _verify_llm_output(text: str, metrics: dict) -> tuple[bool, str]:
@@ -131,11 +174,6 @@ def _template_explanation(profile_result: dict, allocation: list, metrics: dict)
     equity = sum(a["weight"] for a in allocation if a["risk_level"] >= 3)
     top = max(allocation, key=lambda a: a["weight"])
 
-    answers = profile_result.get("answers", {})
-    target_amount = answers.get("target_amount")
-    target_years = answers.get("target_years")
-    monthly_contrib = answers.get("monthly_contrib")
-
     parts = [
         f"Tu perfil es {profile['label']} (puntaje {profile_result['score']}/100 "
         f"con reglas v{profile_result['rules_version']}). {profile['description']}",
@@ -147,37 +185,6 @@ def _template_explanation(profile_result: dict, allocation: list, metrics: dict)
         f"podría caer en torno a ese porcentaje, y la diversificación entre "
         f"{metrics['diversification']} clases de activos busca amortiguar esas caídas.",
     ]
-
-    # Análisis de viabilidad personalizado "Agente Personalizado - Meta Financiera"
-    if target_amount and target_years and monthly_contrib:
-        try:
-            amt = float(target_amount)
-            yrs = float(target_years)
-            contrib = float(monthly_contrib)
-            
-            # Cálculo de rendimiento necesario simple aproximado: 
-            # Total Aportaciones = contrib * 12 * yrs
-            # Resto necesario para llegar a amt
-            total_invested = contrib * 12 * yrs
-            if total_invested < amt:
-                needed_return_pct = round(((amt - total_invested) / total_invested) / yrs * 100, 1)
-                if needed_return_pct < 0:
-                    needed_return_pct = 0.0
-            else:
-                needed_return_pct = 0.0
-
-            goal_analysis = (
-                f" Análisis de tu meta personalizada: Para alcanzar ${amt:,.0f} USD en {yrs:.0f} años "
-                f"aportando ${contrib:,.0f} USD mensuales (inversión total de ${total_invested:,.0f} USD), "
-                f"el rendimiento anual estimado requerido es del {needed_return_pct}%. "
-                f"Tu portafolio {profile['label']} ofrece un {metrics['expected_return']}%. "
-                f"Consejo de Inversión (Estilo Warren Buffett): El 90% de los grandes inversores "
-                f"indican que la consistencia es clave; si la brecha es alta, incrementa tu aportación "
-                f"o extiende el plazo."
-            )
-            parts.append(goal_analysis)
-        except Exception:
-            pass
 
     if profile_result.get("capped"):
         reasons = "; ".join(k["reason"] for k in profile_result["knockouts_applied"])

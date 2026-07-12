@@ -3,27 +3,24 @@
 @tailwind utilities;
 
 /*
-  InvertIA — Premium Neobank/Fintech Design System v3.0
+  InvertIA — Fintech Product Design System v5.0
   ─────────────────────────────────────────────────────────────────────────────
-  ESTILO:       Zelify / Betterment (Pure White, Emerald Green, Slate Accent)
-  TIPOGRAFÍA:   Plus Jakarta Sans (Body & Headings)
+  ESTILO:       Producto financiero moderno (Stripe, Mercury, Robinhood)
+  TIPOGRAFÍA:   Inter — una sola familia para todo (titulares, cuerpo, cifras).
+                La jerarquía la da el peso/tamaño, no mezclar tipografías: es
+                el patrón más usado y probado en dashboards fintech reales.
   PALETA:       Background: #FFFFFF · Cards: #FFFFFF · Text: #0F172A
                 Active Accents: #10B981 (Emerald Green), #2563EB (Trust Blue)
                 Borders: #E2E8F0 (Clean Light Grey)
-  PSICOLOGÍA:   Blanco puro = Claridad, transparencia, honestidad
-                Verde esmeralda = Crecimiento, seguridad, rentabilidad
-                Azul corporativo = Estabilidad y solidez institucional
   GESTALT:      Proximidad, similitud, continuidad y punto focal claro
   WCAG 2.1 AA:  Skip-link · aria-live · focus-visible · contraste ≥ 4.5:1
   ─────────────────────────────────────────────────────────────────────────────
 */
 
-/* Tipografía temática de inversión:
-   · Space Grotesk — display/cifras: geométrica, técnica, "financiera", con números
-     tabulares nítidos para montos y porcentajes.
-   · Plus Jakarta Sans — cuerpo: sans premium fintech (intención original del diseño),
-     legible y cálida sin perder seriedad. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+/* Inter: estándar de facto en producto financiero/SaaS moderno (Stripe, Linear,
+   Mercury, Vercel). Una sola familia con rango completo de pesos — evita el
+   choque visual de mezclar dos tipografías distintas en la misma interfaz. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -51,8 +48,7 @@
   --red-soft:    #FEF2F2;      /* Fondo suave rojo */
 
   /* ── Fuentes ─────────────────────── */
-  --font-sans:   'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   /* ── Geometría ───────────────────── */
   --radius-sharp: 6px;
@@ -95,12 +91,20 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  letter-spacing: -0.01em;
 }
 
-h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pillar-title, .stat-value, .nav-pill {
-  font-family: var(--font-display);
+/* Jerarquía por peso y tamaño, misma familia (Inter) que el cuerpo: el patrón
+   estándar de dashboards fintech — nada de mezclar tipografías. */
+h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pillar-title {
+  font-family: var(--font-sans);
+  font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Controles de navegación y cifras: sans neutro, nunca serif (legibilidad y
+   alineación tabular por encima de la estética). */
+.nav-pill, .info-tooltip-btn {
+  font-family: var(--font-sans);
 }
 
 /* Cifras financieras con números tabulares (alineación de montos y %). */
@@ -145,9 +149,10 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 }
 
 .logo {
-  font-size: 22px; font-weight: 800; color: var(--ink); letter-spacing: -0.5px;
+  font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;
   display: flex; align-items: center; gap: 8px;
 }
+.logo-mark { color: var(--green-hover); flex-shrink: 0; }
 .logo-accent { color: var(--green); }
 
 .nav-pills { display: flex; gap: 4px; }
@@ -381,9 +386,12 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   100% { transform: scale(1); }
 }
 
+.ai-insight-title-col { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ai-insight-heading {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.5px;
-  color: var(--ink); white-space: nowrap; text-transform: uppercase;
+  font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap;
+}
+.ai-insight-subtitle {
+  font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ai-insight-controls { display: flex; gap: 8px; align-items: center; }
 
@@ -410,26 +418,63 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 
 .ai-panel-body { padding: 20px 24px; }
 
-/* TABLIST NAVIGATION (Gestalt Proximity) */
-.ai-tabs-nav {
-  display: flex; gap: 8px; border-bottom: 1px solid var(--border);
-  margin-bottom: 20px; padding-bottom: 2px;
+/* Tu propuesta (HU2 visible aquí): treemap primero, cifras después, texto al final. */
+.ai-my-proposal {
+  background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 18px 20px; margin-bottom: 18px;
 }
-.ai-tab-btn {
-  border: 0; background: transparent; padding: 10px 14px;
-  font-size: 13px; font-weight: 600; color: var(--muted);
-  cursor: pointer; transition: var(--transition); border-bottom: 2px solid transparent;
-  font-family: inherit; position: relative;
+.ai-my-proposal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.ai-my-proposal-ticker { font-size: 11px; color: var(--green); font-weight: 700; }
+.ai-my-proposal-empty {
+  display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+  font-size: 13.5px; color: var(--ink-mid); line-height: 1.5;
 }
-.ai-tab-btn:hover { color: var(--ink); }
-.ai-tab-btn.active {
-  color: var(--green); border-bottom-color: var(--green); font-weight: 700;
+
+/* Disparador del reporte: acción explícita "Generar", no autocarga silenciosa. */
+.ai-generate-trigger {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 16px 20px; margin-bottom: 18px; flex-wrap: wrap;
 }
-.badge-alert-dot {
-  position: absolute; top: 4px; right: 2px; width: 6px; height: 6px;
-  background: var(--red); border-radius: 50%;
-  animation: pulse-dot 1.5s infinite;
+.ai-generate-trigger strong { font-size: 14px; color: var(--ink); }
+.ai-generate-trigger p { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+
+/* Reporte dentro del modal: propuesta → evidencia → modelo. */
+.analysis-report { display: flex; flex-direction: column; gap: 24px; }
+.analysis-report-section { display: flex; flex-direction: column; gap: 10px; }
+.analysis-report-hint { font-size: 12px; color: var(--muted); }
+.analysis-report-explanation { font-size: 13px; color: var(--ink-mid); line-height: 1.6; }
+.ai-model-list { display: flex; flex-direction: column; gap: 10px; list-style: none; }
+.ai-model-list li { font-size: 13px; color: var(--ink-mid); line-height: 1.55; }
+.ai-model-list strong { color: var(--ink); }
+.ai-model-badge {
+  display: inline-block; font-size: 11px; font-weight: 700; color: var(--blue);
+  background: var(--blue-soft); padding: 2px 8px; border-radius: var(--radius-pill);
 }
+
+/* Contexto: <details> nativo en vez de pestañas custom — accesible por defecto,
+   sin JS extra, un solo nivel de revelado progresivo (Nielsen H8 minimalismo). */
+.ai-context {
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  margin: 16px 0; overflow: hidden;
+}
+.ai-context-summary {
+  cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 700;
+  color: var(--ink-mid); background: var(--slate-bg); list-style: none;
+}
+.ai-context-summary::-webkit-details-marker { display: none; }
+.ai-context-summary:hover { color: var(--green); }
+.ai-context-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.mood-card { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mood-badge {
+  font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: var(--radius-pill);
+  text-transform: uppercase; letter-spacing: 0.3px;
+}
+.mood-optimista { background: var(--green-soft); color: var(--green); }
+.mood-cauteloso { background: var(--amber-soft); color: var(--amber); }
+.mood-neutral { background: var(--slate-bg); color: var(--ink-mid); border: 1px solid var(--border); }
+.mood-detail { font-size: 12.5px; color: var(--muted); }
 
 .ai-summary {
   font-size: 14px; line-height: 1.65; color: var(--ink-mid);
@@ -561,7 +606,7 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   background: var(--card); border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
 }
-.hero-panel h2 { font-size: 20px; font-weight: 800; color: var(--ink); }
+.hero-panel h2 { font-size: 20px; font-weight: 700; color: var(--ink); }
 .hero-sub { font-size: 14px; margin: 6px 0 16px; color: var(--ink-mid); }
 .hero-chip { display: inline-block; margin-bottom: 8px; }
 .gauge { width: 100%; max-width: 280px; margin: 0 auto; display: block; }
@@ -663,15 +708,26 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 /* ── Rules View ── */
 .rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 @media (max-width: 900px) { .rules-grid { grid-template-columns: 1fr; } }
+.rules-references { grid-column: 1 / -1; }
 .formula {
   display: block; background: var(--slate-bg); color: var(--blue);
   border-radius: var(--radius-card); padding: 16px; font-size: 13px;
   margin-bottom: 16px; overflow-x: auto; font-family: monospace;
   border: 1px solid var(--border);
 }
+.methodology-note {
+  font-size: 12.5px; color: var(--ink-mid); line-height: 1.55;
+  background: var(--slate-bg); border-radius: var(--radius-card);
+  padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--border);
+}
 .profile-range { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .profile-range p { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .subhead { font-size: 11px; font-weight: 700; margin: 16px 0 8px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; }
+.knockout-source { font-style: italic; opacity: 0.85; }
+.reference-list { list-style: decimal; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.reference-item { font-size: 12.5px; line-height: 1.5; color: var(--ink-mid); }
+.reference-item a { color: var(--blue); text-decoration: none; }
+.reference-item a:hover { text-decoration: underline; }
 
 /* ── Agent Bubble ── */
 .agent-msg { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0 16px; }
@@ -706,8 +762,17 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .tm-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; }
 .tm-legend-item { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
 
+/* ── Disparador del modal de detalle (menos scroll en la vista principal) ── */
+.proposal-detail-trigger {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap; margin: 16px 0; padding: 12px 16px;
+  background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-card);
+}
+.proposal-detail-hint { font-size: 12.5px; color: var(--ink-mid); font-weight: 500; }
+.proposal-detail-trigger .btn-ghost { margin: 0; padding: 8px 16px; font-size: 12.5px; }
+
 /* ── Holdings ── */
-.holdings { margin-top: 18px; }
+.holdings { margin-top: 0; }
 .holdings-head {
   display: flex; justify-content: space-between; font-size: 11px; color: var(--muted);
   font-weight: 700; padding-bottom: 10px; border-bottom: 2px solid var(--border);
@@ -750,49 +815,134 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
    LANDING & HERO — Clean premium landing page inspired by Zelify
    ──────────────────────────────────────────────────────────────────────── */
 .landing { display: flex; flex-direction: column; gap: 48px; padding: 12px 0; }
-.section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; color: var(--ink); }
+.section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; color: var(--ink); }
 .section-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; max-width: 680px; }
 
 .hero {
   display: grid; grid-template-columns: 1.2fr .8fr; gap: 0; align-items: stretch;
   background: var(--slate-bg); border-radius: var(--radius-card);
-  border: 1px solid var(--border); overflow: hidden; min-height: 380px;
+  border: 1px solid var(--border); overflow: hidden;
 }
-@media (max-width: 780px) { .hero { grid-template-columns: 1fr; min-height: auto; } }
+@media (max-width: 780px) { .hero { grid-template-columns: 1fr; } }
 .hero-copy {
-  padding: 48px; display: flex; flex-direction: column; justify-content: center;
+  padding: 40px 44px; display: flex; flex-direction: column; justify-content: center;
   position: relative; background: #fff;
 }
+@media (max-width: 560px) { .hero-copy { padding: 28px 22px; } }
 .hero-eyebrow {
-  font-size: 11px; font-weight: 800; color: var(--green); text-transform: uppercase;
+  font-size: 11px; font-weight: 700; color: var(--green); text-transform: uppercase;
   letter-spacing: 1.5px; margin-bottom: 12px;
 }
 .hero-copy h1 {
-  font-size: 38px; line-height: 1.15; font-weight: 800;
-  letter-spacing: -1px; margin-bottom: 16px; color: var(--ink);
+  font-size: clamp(26px, 4vw, 40px); line-height: 1.15; font-weight: 800;
+  letter-spacing: -0.03em; margin-bottom: 16px; color: var(--ink);
 }
 .hero-copy h1 em { font-style: normal; color: var(--green); }
-.hero-lede { font-size: 16px; line-height: 1.6; color: var(--ink-mid); max-width: 480px; margin-bottom: 28px; }
+.hero-lede { font-size: 15.5px; line-height: 1.6; color: var(--ink-mid); max-width: 480px; margin-bottom: 24px; }
 .hero-cta-group { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.hero-fine { font-size: 11.5px; color: var(--muted); margin-top: 16px; }
+.hero-fine { font-size: 11.5px; color: var(--muted); }
 
-/* Visual Hero image */
+/* ── Panel visual del hero: terminal financiero (velas + cotizaciones) ── */
 .hero-visual {
-  position: relative; overflow: hidden;
-  background: var(--slate-bg); border-left: 1px solid var(--border);
+  position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background: var(--ink); border-left: 1px solid var(--border); padding: 28px 24px;
 }
-.hero-visual-img {
-  width: 100%; height: 100%; object-fit: cover;
-  display: block; opacity: 0.95;
+@media (max-width: 780px) { .hero-visual { border-left: 0; border-top: 1px solid var(--border); } }
+.terminal-card { width: 100%; max-width: 340px; color: #fff; }
+.terminal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.terminal-label {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.55);
 }
-.hero-visual-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+.terminal-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.25);
 }
-@media (max-width: 780px) {
-  .hero-visual-overlay {
-    background: linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
-  }
+
+/* ── Lista de instrumentos reales estilo "Popular" ── */
+.ticker-list { display: flex; flex-direction: column; }
+
+/* Carrusel vertical estilo ticker de cripto: la pista contiene la lista
+   DUPLICADA (mismo array dos veces) y se desplaza -50% en loop perfecto —
+   al llegar a la mitad, el contenido visible es idéntico al inicio. */
+.ticker-marquee {
+  height: 216px; overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+.ticker-marquee-track {
+  animation: ticker-scroll-y 18s linear infinite;
+}
+.ticker-marquee:hover .ticker-marquee-track { animation-play-state: paused; }
+@keyframes ticker-scroll-y {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-marquee-track { animation: none; }
+  .ticker-marquee { overflow-y: auto; }
+}
+.ticker-list-row {
+  display: grid; grid-template-columns: 30px 1fr 56px auto auto; gap: 10px; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.ticker-list-row:last-child { border-bottom: 0; }
+.ticker-list-row .holding-logo, .ticker-list-row .holding-mono { width: 28px; height: 28px; }
+.ticker-list-row .holding-mono { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.ticker-list-name { display: flex; flex-direction: column; min-width: 0; }
+.ticker-list-name strong { font-size: 13px; color: #fff; }
+.ticker-list-name em {
+  font-style: normal; font-size: 10.5px; color: rgba(255,255,255,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px;
+}
+.mini-trend { display: block; flex-shrink: 0; }
+.mini-trend-empty { display: block; width: 56px; }
+@media (max-width: 780px) { .ticker-list-row { grid-template-columns: 26px 1fr 44px auto auto; } .mini-trend { width: 44px; } }
+.ticker-list-price {
+  font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.85);
+  font-variant-numeric: tabular-nums;
+}
+.ticker-list-change { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.ticker-list-change.price-up { color: var(--green); }
+.ticker-list-change.price-down { color: #f87171; }
+.ticker-list-row-skeleton { height: 46px; background: rgba(255,255,255,0.04); border-radius: 8px; border-bottom: 0; margin-bottom: 4px; }
+
+/* ── Efectos del CTA principal: pulso + brillo + flecha "pulsa aquí" ── */
+@keyframes btn-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); }
+  70%  { box-shadow: 0 0 0 10px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+.btn-pulse { animation: btn-pulse-ring 2.4s ease-out infinite; position: relative; }
+.btn-pulse:hover, .btn-pulse:focus-visible { animation-play-state: paused; }
+
+.btn-shine { overflow: hidden; }
+.btn-shine::after {
+  content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,0.65), transparent);
+  transform: skewX(-20deg); animation: btn-shine-sweep 3s ease-in-out infinite;
+}
+@keyframes btn-shine-sweep {
+  0% { left: -60%; } 35% { left: 130%; } 100% { left: 130%; }
+}
+
+.cta-nudge-wrap { position: relative; display: inline-flex; }
+.cta-nudge {
+  position: absolute; top: -34px; right: -74px; display: flex; flex-direction: column;
+  align-items: center; color: var(--green); pointer-events: none;
+  animation: cta-nudge-bounce 1.6s ease-in-out infinite;
+}
+.cta-nudge-arrow { width: 40px; height: 36px; transform: scaleX(-1); }
+.cta-nudge-label {
+  font-size: 11.5px; font-weight: 700; white-space: nowrap; margin-top: -4px;
+  background: var(--green-soft); padding: 2px 8px; border-radius: var(--radius-pill);
+}
+@keyframes cta-nudge-bounce {
+  0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); }
+}
+@media (max-width: 640px) { .cta-nudge { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-pulse, .btn-shine::after, .cta-nudge { animation: none; }
 }
 
 /* Value pillars */
@@ -806,7 +956,9 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   transition: var(--transition);
 }
 .pillar-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); border-color: var(--green); }
-.pillar-icon { font-size: 24px; }
+.pillar-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.pillar-icon { font-size: 24px; color: var(--green); }
+.pillar-hu-badge { font-size: 9.5px; font-weight: 700; letter-spacing: 0.3px; padding: 2px 8px; flex-shrink: 0; }
 .pillar-title { font-size: 15px; font-weight: 700; color: var(--ink); }
 .pillar-text { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
@@ -904,7 +1056,7 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   width: 22px; height: 22px; border-radius: 50%;
   border: 1px solid var(--border-dark); background: var(--slate-bg);
   color: var(--ink-mid); font-size: 12px; font-weight: 800; font-style: italic;
-  cursor: pointer; font-family: var(--font-display); line-height: 1;
+  cursor: pointer; line-height: 1;
   display: grid; place-items: center; transition: var(--transition);
 }
 .info-tooltip-btn:hover, .info-tooltip-btn[aria-expanded="true"] {
@@ -938,11 +1090,25 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 .big-number-value {
-  font-family: var(--font-display); font-size: 32px; font-weight: 800;
-  color: var(--ink); line-height: 1.1; letter-spacing: -0.5px; text-transform: capitalize;
+  font-family: var(--font-sans); font-size: 32px; font-weight: 700;
+  color: var(--ink); line-height: 1.1; letter-spacing: -0.01em; text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
 }
 .big-number-green .big-number-value { color: var(--green-hover); }
 .big-number-sub { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+
+/* ── Meta financiera del cliente (goal_fit) — HU2 + HU3 ────────────────── */
+.goal-fit-card {
+  background: var(--slate-bg); border: 1px solid var(--border);
+  border-radius: var(--radius-card); padding: 16px 18px; margin-bottom: 18px;
+}
+.goal-fit-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.goal-fit-head strong { font-size: 14px; letter-spacing: -0.2px; }
+.goal-fit-desc { font-size: 13px; line-height: 1.55; color: var(--ink); margin-bottom: 12px; }
+.goal-fit-fine { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
 
 /* ── §2 Propuesta: gráficos interactivos (hover revela %) ─────────────── */
 .donut-seg { cursor: pointer; transition: stroke-width 0.15s ease, opacity 0.15s ease; }
@@ -1000,7 +1166,7 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--slate-bg);
 }
-.slideover-title { font-size: 15px; font-weight: 800; color: var(--ink); }
+.slideover-title { font-size: 15px; font-weight: 600; color: var(--ink); }
 .slideover-close {
   border: 1px solid var(--border); background: var(--card); color: var(--ink-mid);
   width: 30px; height: 30px; border-radius: var(--radius-sharp); cursor: pointer;
@@ -1114,7 +1280,7 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .advisor-stat-tile.t-pendiente { border-top-color: #EAB308; background: #FEFCE8; }
 .advisor-stat-tile.t-aprobada  { border-top-color: var(--green); background: var(--green-soft); }
 .advisor-stat-tile.t-rechazada { border-top-color: var(--red); background: var(--red-soft); }
-.advisor-stat-num { font-family: var(--font-display); font-size: 28px; font-weight: 800; color: var(--ink); line-height: 1; }
+.advisor-stat-num { font-family: var(--font-sans); font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums; }
 .advisor-stat-lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); }
 .advisor-chart-wrap { width: 100%; height: 180px; }
 .advisor-chart-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }

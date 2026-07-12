@@ -4,12 +4,14 @@
   "name": "Reglas de perfilamiento de riesgo",
   "description": "Reglas visibles y versionadas para calcular el perfil preliminar del inversionista. El puntaje se normaliza de 0 a 100 y se aplican reglas de tope (knockout) que protegen al usuario.",
   "scoring_formula": "score = 100 * suma(peso_q * (puntos_q - 1) / 3) / suma(pesos)",
+  "methodology_note": "Las 6 preguntas cubren los componentes estándar de un Investment Policy Statement (objetivos de retorno, horizonte, tolerancia al riesgo, experiencia, situación financiera y necesidades de liquidez) y los factores de idoneidad exigidos por la regulación de valores. No son un cuestionario propietario: cada pregunta cita la fuente de la que se adapta.",
   "questions": [
     {
       "id": "objetivo",
       "weight": 20,
       "text": "¿Cuál es tu objetivo principal al invertir?",
       "help": "Define qué buscas lograr con tu dinero.",
+      "source": "CFA Institute — Investment Policy Statement: objetivos de retorno",
       "options": [
         { "value": "preservar", "label": "Preservar mi capital, evitar pérdidas", "points": 1 },
         { "value": "ingresos", "label": "Generar ingresos estables", "points": 2 },
@@ -22,6 +24,7 @@
       "weight": 20,
       "text": "¿En cuánto tiempo necesitarás este dinero?",
       "help": "El horizonte determina cuánta volatilidad puedes absorber.",
+      "source": "CFA Institute — Investment Policy Statement: restricción de horizonte temporal",
       "options": [
         { "value": "corto", "label": "Menos de 1 año", "points": 1 },
         { "value": "medio_corto", "label": "Entre 1 y 3 años", "points": 2 },
@@ -34,6 +37,7 @@
       "weight": 25,
       "text": "Si tu portafolio cayera 20% en un mes, ¿qué harías?",
       "help": "Mide tu tolerancia emocional real ante pérdidas.",
+      "source": "Grable & Lytton (1999), Financial Services Review 8(3) — escala de tolerancia al riesgo financiero",
       "options": [
         { "value": "vender_todo", "label": "Vendería todo para no perder más", "points": 1 },
         { "value": "vender_parte", "label": "Vendería una parte", "points": 2 },
@@ -46,6 +50,7 @@
       "weight": 10,
       "text": "¿Cuál es tu experiencia previa invirtiendo?",
       "help": "La experiencia influye en la complejidad de instrumentos sugeridos.",
+      "source": "FINRA Rule 2111 (Suitability) / MiFID II Art. 25 — conocimiento y experiencia del inversionista",
       "options": [
         { "value": "ninguna", "label": "Ninguna, es mi primera vez", "points": 1 },
         { "value": "basica", "label": "Básica: cuentas de ahorro o depósitos a plazo", "points": 2 },
@@ -58,6 +63,7 @@
       "weight": 10,
       "text": "¿Qué tan estables son tus ingresos mensuales?",
       "help": "Ingresos estables permiten asumir más riesgo de mercado.",
+      "source": "FINRA Rule 2111 (Suitability) — situación financiera y necesidades del cliente",
       "options": [
         { "value": "inestables", "label": "Variables e impredecibles", "points": 1 },
         { "value": "algo_estables", "label": "Algo variables", "points": 2 },
@@ -70,6 +76,7 @@
       "weight": 15,
       "text": "¿Cuentas con un fondo de emergencia?",
       "help": "Sin colchón de liquidez, no es prudente asumir riesgo alto.",
+      "source": "CFA Institute — Investment Policy Statement: restricción de liquidez",
       "options": [
         { "value": "no", "label": "No tengo fondo de emergencia", "points": 1 },
         { "value": "parcial", "label": "Cubre menos de 3 meses de gastos", "points": 2 },
@@ -106,19 +113,49 @@
       "id": "horizonte_corto",
       "condition": "horizonte == 'corto'",
       "cap_profile": "conservador",
-      "reason": "Con un horizonte menor a 1 año no es prudente exponerse a volatilidad de mercado, sin importar la tolerancia declarada."
+      "reason": "Con un horizonte menor a 1 año no es prudente exponerse a volatilidad de mercado, sin importar la tolerancia declarada.",
+      "source": "CFA Institute IPS — el horizonte temporal limita la volatilidad tolerable independientemente del puntaje declarado"
     },
     {
       "id": "sin_fondo_emergencia",
       "condition": "emergencia == 'no'",
       "cap_profile": "moderado",
-      "reason": "Sin fondo de emergencia, una caída del mercado podría forzar ventas en el peor momento. Se limita el perfil a Moderado."
+      "reason": "Sin fondo de emergencia, una caída del mercado podría forzar ventas en el peor momento. Se limita el perfil a Moderado.",
+      "source": "CFA Institute IPS — la restricción de liquidez tiene precedencia sobre la tolerancia al riesgo declarada"
     },
     {
       "id": "panico_ante_caida",
       "condition": "reaccion == 'vender_todo'",
       "cap_profile": "conservador",
-      "reason": "Quien vendería todo ante una caída de 20% materializaría la pérdida. La tolerancia emocional manda sobre el puntaje."
+      "reason": "Quien vendería todo ante una caída de 20% materializaría la pérdida. La tolerancia emocional manda sobre el puntaje.",
+      "source": "FINRA Rule 2111(a) — idoneidad de base razonable: la reacción conductual reportada prevalece sobre el puntaje agregado"
+    }
+  ],
+  "references": [
+    {
+      "id": "finra_2111",
+      "citation": "FINRA Rule 2111 — Suitability. Financial Industry Regulatory Authority.",
+      "url": "https://www.finra.org/rules-guidance/rulebooks/finra-rules/2111"
+    },
+    {
+      "id": "mifid_ii",
+      "citation": "Directiva 2014/65/UE (MiFID II), Artículo 25 — Evaluación de idoneidad y conveniencia.",
+      "url": "https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=celex%3A32014L0065"
+    },
+    {
+      "id": "markowitz_1952",
+      "citation": "Markowitz, H. (1952). \"Portfolio Selection.\" The Journal of Finance, 7(1), 77–91.",
+      "url": "https://doi.org/10.2307/2975974"
+    },
+    {
+      "id": "grable_lytton_1999",
+      "citation": "Grable, J. E., & Lytton, R. H. (1999). \"Financial risk tolerance revisited: the development of a risk assessment instrument.\" Financial Services Review, 8(3), 163–181.",
+      "url": "https://doi.org/10.1016/S1057-0810(99)00041-4"
+    },
+    {
+      "id": "cfa_ips",
+      "citation": "CFA Institute — Investment Policy Statement: componentes estándar (objetivos, horizonte, tolerancia al riesgo, liquidez, situación financiera).",
+      "url": "https://www.cfainstitute.org/insights/professional-learning/refresher-readings/investment-policy-individual-investors"
     }
   ]
 }

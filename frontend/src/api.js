@@ -18,10 +18,10 @@ export const api = {
   market: () => request('/market'),
   news: () => request('/news'),
   aiInsight: (profile) => request(`/ai-insight${profile ? `?profile=${encodeURIComponent(profile)}` : ''}`),
-  createProposal: (clientName, answers) =>
+  createProposal: (clientName, answers, goal) =>
     request('/proposals', {
       method: 'POST',
-      body: JSON.stringify({ client_name: clientName, answers }),
+      body: JSON.stringify({ client_name: clientName, answers, goal: goal || null }),
     }),
   listProposals: () => request('/proposals'),
   decide: (id, payload) =>

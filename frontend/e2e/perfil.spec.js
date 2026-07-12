@@ -12,12 +12,13 @@ test('perfil moderado con desglose y propuesta pendiente', async ({ page }) => {
   // Transparencia: una fila de influencia por pregunta
   await expect(page.getByTestId('influence-row')).toHaveCount(6)
 
-  // HU2: treemap, catálogo aprobado con instrumentos reales y límites visibles
+  // HU2: treemap con % de asignación siempre visible, sin necesidad de scroll extra
   await expect(page.getByTestId('treemap')).toBeVisible()
-  await expect(page.getByTestId('holding-row')).toHaveCount(7) // portafolio moderado
-  await expect(page.getByTestId('compliance')).toContainText('No ejecuta órdenes')
-
-  // La propuesta no se ejecuta: queda pendiente del asesor, con disclaimer
   await expect(page.getByTestId('status-chip').first()).toHaveText('Pendiente de asesor')
   await expect(page.getByTestId('disclaimer')).toContainText('no ejecuta órdenes')
+
+  // Detalle denso (instrumentos, precios, límites) vive en un modal bajo demanda
+  await page.getByTestId('open-proposal-detail').click()
+  await expect(page.getByTestId('holding-row')).toHaveCount(7) // portafolio moderado
+  await expect(page.getByTestId('compliance')).toContainText('No ejecuta órdenes')
 })

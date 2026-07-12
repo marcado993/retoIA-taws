@@ -5,10 +5,10 @@ import TrustBar from '../organisms/TrustBar.jsx'
 
 // Landing previa al cuestionario (HU1), estructurada como la de Betterment:
 // hero → pilares de valor → casos de uso por objetivo → barra de confianza.
-export default function LandingTemplate({ rulesVersion, catalogSize, onStart, onSelectGoal }) {
+export default function LandingTemplate({ rulesVersion, catalogSize, market, catalog, onStart, onSelectGoal }) {
   return (
     <div className="landing">
-      <Hero onStart={onStart} />
+      <Hero onStart={onStart} market={market} catalog={catalog} />
       <ValuePillars />
       <GoalUseCases onSelectGoal={onSelectGoal} />
       <TrustBar rulesVersion={rulesVersion} catalogSize={catalogSize} />

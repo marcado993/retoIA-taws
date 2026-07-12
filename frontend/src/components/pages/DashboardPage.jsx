@@ -24,6 +24,8 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
       <LandingTemplate
         rulesVersion={questionnaire.rules_version}
         catalogSize={catalog?.instruments?.length ?? '—'}
+        market={market}
+        catalog={catalog}
         onStart={() => beginWith()}
         onSelectGoal={(objetivo) => beginWith({ objetivo })}
       />

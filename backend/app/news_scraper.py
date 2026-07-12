@@ -194,37 +194,74 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
             "action":  "GLD como cobertura si el dólar se debilita.",
         })
 
-    # 2. Ideas de Inversión de Grandes Inversores & Twitter (Basado en el Perfil)
-    investor_tips = []
-    # Warren Buffett
-    if profile_label == "Conservador":
-        investor_tips.append({
-            "investor": "Warren Buffett",
-            "strategy": "Regla de Efectivo",
-            "quote": "La regla número 1 es nunca perder dinero. La regla número 2 es nunca olvidar la regla número 1.",
-            "recommendation": "Buffett mantiene más de $150B en efectivo y letras del tesoro (similar a BIL) en tiempos inciertos."
-        })
-    else:
-        investor_tips.append({
-            "investor": "Warren Buffett",
-            "strategy": "Indexación Sencilla",
-            "quote": "Compre un fondo de índice S&P 500 de bajo costo de manera constante.",
-            "recommendation": "Buffett sugiere SPY para el 90% del capital a largo plazo de inversores individuales."
-        })
+    # 2. Principios de inversión de largo plazo, seleccionados según los temas
+    # REALES detectados en las noticias de hoy (no por el perfil del cliente):
+    # así la sección responde a la pregunta "qué diría un inversor experimentado
+    # sobre ESTOS titulares", en vez de un texto fijo desconectado del scraper.
+    # Pool de 5 inversores reales (no solo Buffett) — cada uno con condición propia.
+    candidate_tips = [
+        (themes["recession"] or neg_pct >= 0.5, {
+            "investor": "Warren Buffett", "strategy": "Preservación de capital",
+            "principle": "La regla número 1 es nunca perder dinero. La regla número 2 es nunca olvidar la regla número 1.",
+            "context": "Aplica hoy porque las noticias muestran señales de recesión o pesimismo generalizado.",
+        }),
+        (themes["geopolitical"] or themes["commodity"], {
+            "investor": "Ray Dalio", "strategy": "All Weather Portfolio",
+            "principle": "Si no estás diversificado, estás expuesto a caídas del 50% al 70%.",
+            "context": "Aplica hoy porque hay tensión geopolítica o movimientos en materias primas en los titulares.",
+        }),
+        (neg_pct >= 0.4 and not themes["recession"], {
+            "investor": "Benjamin Graham", "strategy": "Inversión de valor",
+            "principle": "El inversor inteligente es un realista que vende a los optimistas y compra a los pesimistas.",
+            "context": "Aplica hoy porque el pesimismo en titulares puede abrir oportunidades de valor, sin ser una crisis confirmada.",
+        }),
+        (themes["tech_rally"], {
+            "investor": "Peter Lynch", "strategy": "Conoce lo que posees",
+            "principle": "Conoce lo que posees y por qué lo posees.",
+            "context": "Aplica hoy porque hay titulares de rally tecnológico: antes de sumar exposición, entiende qué hay detrás del ETF.",
+        }),
+        (pos_pct >= neg_pct and not themes["tech_rally"] and not themes["recession"], {
+            "investor": "John Bogle", "strategy": "Indexación de bajo costo",
+            "principle": "No busques la aguja en el pajar. Compra el pajar completo.",
+            "context": "Aplica hoy porque no hay señales agudas de riesgo ni euforia: mantener el índice sigue siendo razonable.",
+        }),
+    ]
+    investor_tips = [tip for active_flag, tip in candidate_tips if active_flag][:3]
+    if not investor_tips:
+        investor_tips = [candidate_tips[-1][1]]
 
-    # Ray Dalio (All Weather Portfolio)
-    investor_tips.append({
-        "investor": "Ray Dalio",
-        "strategy": "All Weather Portfolio",
-        "quote": "Si no estás diversificado, estás expuesto a caídas del 50% al 70%.",
-        "recommendation": "Suggere balancear Renta Variable (SPY) con Bonos a Largo Plazo (TLT) y Oro (GLD) para resistir cualquier ciclo económico."
-    })
+    # 2b. Noticias que respaldan el análisis: los titulares REALES que dispararon
+    # cada tema detectado, no una lista arbitraria — así "Generar análisis" puede
+    # mostrar la evidencia exacta detrás de cada alerta.
+    theme_keywords = {
+        "geopolitical": _GEOPOLITICAL, "recession": _RECESSION,
+        "inflation": _INFLATION, "tech_rally": _TECH_RALLY, "commodity": _COMMODITY,
+    }
+    supporting_news = []
+    seen_titles = set()
+    for theme_key, active_flag in themes.items():
+        if not active_flag:
+            continue
+        for n in news:
+            title_l = n["title"].lower()
+            if any(w in title_l for w in theme_keywords[theme_key]) and n["title"] not in seen_titles:
+                supporting_news.append({**n, "matched_theme": theme_key})
+                seen_titles.add(n["title"])
 
-    # Twitter / Reddit WallStreetBets Sentiment
-    twitter_sentiment = {
-        "score": "Bullish en Tecnología (QQQ)" if pos_pct >= 0.4 else "Cauteloso en Renta Variable",
-        "trend": "#AI, #FedRates y #Inflation dominando la conversación financiera internacional.",
-        "retail_mood": "Inversores minoristas acumulando ETFs defensivos (BIL/AGG) ante alertas de volatilidad."
+    # Estado de ánimo del mercado: se calcula SOLO a partir del sentimiento real
+    # de las noticias obtenidas (RSS o snapshot diferido) — nada de "tendencias
+    # de Twitter" inventadas sin una fuente verificable detrás.
+    active_themes_es = {
+        "geopolitical": "tensión geopolítica", "recession": "riesgo de recesión",
+        "inflation": "inflación y tasas", "tech_rally": "tecnología",
+        "commodity": "materias primas",
+    }
+    active = [label for key, label in active_themes_es.items() if themes.get(key)]
+    market_mood = {
+        "mood": "Optimista" if pos_pct > neg_pct else ("Cauteloso" if neg_pct > pos_pct else "Neutral"),
+        "pos_pct": round(pos_pct * 100),
+        "neg_pct": round(neg_pct * 100),
+        "topics": active or ["sin temas dominantes en este ciclo de noticias"],
     }
 
     # 3. Memoria del Sistema: Historial de decisiones pasadas (HITL Loop)
@@ -281,7 +318,8 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
         "pos_pct":           round(pos_pct * 100),
         "themes":            themes,
         "investor_tips":     investor_tips,
-        "twitter_sentiment": twitter_sentiment,
+        "supporting_news":   supporting_news[:6],
+        "market_mood":       market_mood,
         "past_memories":     past_memories,
         "asof":              datetime.now(timezone.utc).isoformat(),
     }

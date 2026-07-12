@@ -66,15 +66,16 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
   const answerLabel = (qq) =>
     qq.options.find(o => o.value === answers[qq.id])
 
+  // La meta financiera viaja como objeto propio (no mezclada en `answers`, que es
+  // solo para las 6 preguntas de riesgo): el backend la usa para calcular goal_fit
+  // de forma estructurada y auditable, sin parsear texto.
   const handleCalculate = () => {
-    // Append the personalized target variables to answers payload with defaults
-    const enhancedAnswers = {
-      ...answers,
-      target_amount: targetAmount.trim() || '1000000',
-      target_years: targetYears.trim() || '5',
-      monthly_contrib: monthlyContrib.trim() || '2000'
+    const goal = {
+      target_amount: Number(targetAmount.trim() || '1000000'),
+      target_years: Number(targetYears.trim() || '5'),
+      monthly_contrib: Number(monthlyContrib.trim() || '2000'),
     }
-    onSubmit(clientName.trim(), enhancedAnswers)
+    onSubmit(clientName.trim(), answers, goal)
   }
 
   if (phase === 'review') {
@@ -118,6 +119,7 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
         </p>
         <div className="btn-row">
           <Button data-testid="submit-profile" disabled={loading}
+            className={loading ? '' : 'btn-pulse'}
             onClick={handleCalculate}>
             {loading ? 'Calculando perfil…' : 'Calcular mi perfil y generar propuesta'}
           </Button>

@@ -7,6 +7,7 @@ import ErrorText from '../atoms/ErrorText.jsx'
 import AllocationRow from '../molecules/AllocationRow.jsx'
 import DecisionNote from '../molecules/DecisionNote.jsx'
 import SlideOver from './SlideOver.jsx'
+import GoalFitCard from './GoalFitCard.jsx'
 
 // HU3: el asesor autorizado aprueba, edita o rechaza la propuesta.
 export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
@@ -54,7 +55,13 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
         {selected.profile_result.capped && ', limitado por regla de protección'}).</p>
       <h4 className="subhead">2 · Justificación de la IA</h4>
       <p className="explanation">{selected.proposal.explanation}</p>
-      <h4 className="subhead">3 · Asignación propuesta (catálogo v{selected.proposal.catalog_version})</h4>
+      {selected.proposal.goal_fit && (
+        <>
+          <h4 className="subhead">3 · Meta financiera del cliente</h4>
+          <GoalFitCard goalFit={selected.proposal.goal_fit} />
+        </>
+      )}
+      <h4 className="subhead">{selected.proposal.goal_fit ? '4' : '3'} · Asignación propuesta (catálogo v{selected.proposal.catalog_version})</h4>
 
       {editing ? (
         <div className="edit-box">
@@ -102,6 +109,7 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
             ) : (
               <>
                 <Button data-testid="btn-aprobar" disabled={busy || !advisor.trim()}
+                  className={!busy && advisor.trim() ? 'btn-pulse' : ''}
                   onClick={() => decide('aprobar')}>{label('aprobar', 'Aprobar')}</Button>
                 <Button variant="ghost" data-testid="btn-editar" disabled={busy || !advisor.trim()}
                   onClick={startEdit}>Editar</Button>

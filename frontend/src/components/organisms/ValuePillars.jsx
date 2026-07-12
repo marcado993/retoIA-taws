@@ -1,3 +1,4 @@
+import Chip from '../atoms/Chip.jsx'
 import PillarCard from '../molecules/PillarCard.jsx'
 
 const ShieldCheckIcon = () => (
@@ -24,11 +25,13 @@ const UserGroupIcon = () => (
   </svg>
 )
 
+// `hu` liga cada pilar a su historia de usuario del reto — visible para que un
+// evaluador ubique de un vistazo las 3 historias mínimas cubiertas.
 const PILLARS = [
-  { icon: <ShieldCheckIcon />, title: 'Diagnóstico transparente', text: 'Reglas de perfilamiento visibles y versionadas: ves exactamente cómo se calcula tu puntaje.' },
-  { icon: <ChartBarIcon />, title: 'Propuesta explicable', text: 'Asignación, riesgo esperado y una explicación en lenguaje claro, sin cajas negras.' },
-  { icon: <BankBuildingIcon />, title: 'Catálogo de ETFs reales', text: 'Instrumentos listados en bolsa con cotización en vivo, no simulaciones inventadas.' },
-  { icon: <UserGroupIcon />, title: 'Revisión humana obligatoria', text: 'Un asesor autorizado aprueba, edita o rechaza cada propuesta antes de recomendarla.' },
+  { icon: <ShieldCheckIcon />, hu: 'HU1', title: 'Diagnóstico transparente', text: 'Reglas de perfilamiento visibles y versionadas: ves exactamente cómo se calcula tu puntaje.' },
+  { icon: <ChartBarIcon />, hu: 'HU2', title: 'Propuesta explicable', text: 'Asignación, riesgo esperado y una explicación en lenguaje claro, sin cajas negras.' },
+  { icon: <BankBuildingIcon />, hu: 'HU2', title: 'Catálogo de ETFs reales', text: 'Instrumentos listados en bolsa con cotización en vivo, no simulaciones inventadas.' },
+  { icon: <UserGroupIcon />, hu: 'HU3', title: 'Revisión humana obligatoria', text: 'Un asesor autorizado aprueba, edita o rechaza cada propuesta antes de recomendarla.' },
 ]
 
 export default function ValuePillars() {
@@ -36,9 +39,12 @@ export default function ValuePillars() {
     <div className="pillars-grid">
       {PILLARS.map(p => (
         <div key={p.title} className="pillar-card">
-          <div className="pillar-icon mb-2">{p.icon}</div>
-          <h4 className="pillar-title font-bold text-brand-ink mb-1">{p.title}</h4>
-          <p className="pillar-text text-sm text-brand-muted">{p.text}</p>
+          <div className="pillar-card-head">
+            <div className="pillar-icon">{p.icon}</div>
+            <Chip tone="neutral" className="pillar-hu-badge" data-testid="pillar-hu-badge">{p.hu}</Chip>
+          </div>
+          <h4 className="pillar-title">{p.title}</h4>
+          <p className="pillar-text">{p.text}</p>
         </div>
       ))}
     </div>

@@ -11,7 +11,7 @@ export default function AdvisorDetailSkeleton() {
       </div>
 
       <div className="advisor-empty-hint">
-        <span>👈</span> Selecciona una propuesta de la cola para revisarla, editarla o decidir.
+        Selecciona una propuesta de la cola para revisarla, editarla o decidir.
       </div>
 
       {/* 1 · Perfil del cliente */}

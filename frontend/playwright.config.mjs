@@ -32,6 +32,7 @@ export default defineConfig({
       url: 'http://localhost:3000',
       reuseExistingServer: false,
       timeout: 60_000,
+      env: { ...process.env, BACKEND_PORT: '8001' },
     },
   ],
 })

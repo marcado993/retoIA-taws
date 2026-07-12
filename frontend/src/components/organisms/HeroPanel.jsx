@@ -6,8 +6,8 @@ import Gauge from '../molecules/Gauge.jsx'
 export default function HeroPanel({ clientName, profileResult, onSeeRules }) {
   return (
     <div className="hero-panel">
-      <h2>Hola{clientName ? `, ${clientName}` : ''}</h2>
-      <p className="hero-sub">Este es tu perfil de riesgo 🙂</p>
+      <h2>{clientName ? `${clientName}` : 'Tu perfil de riesgo'}</h2>
+      <p className="hero-sub">Resultado del diagnóstico, calculado con reglas versionadas.</p>
       {profileResult ? (
         <>
           <Chip tone="lime" className="hero-chip" data-testid="hero-profile-chip">

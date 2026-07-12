@@ -57,7 +57,7 @@ export default function PortfolioComparison({ catalog, profiles }) {
         )
       })}
     </div>
-    <p className="disclaimer" data-testid="portfolio-disclaimer">⚠️ {catalog.disclaimer}</p>
+    <p className="disclaimer" data-testid="portfolio-disclaimer">{catalog.disclaimer}</p>
     </>
   )
 }

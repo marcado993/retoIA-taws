@@ -23,9 +23,16 @@ app.add_middleware(
 store.load()
 
 
+class GoalRequest(BaseModel):
+    target_amount: float = Field(gt=0)
+    target_years: float = Field(gt=0)
+    monthly_contrib: float = Field(ge=0)
+
+
 class ProfileRequest(BaseModel):
     client_name: str = Field(min_length=1)
     answers: dict[str, str]
+    goal: GoalRequest | None = None
 
 
 class AllocationLine(BaseModel):
@@ -72,7 +79,8 @@ def create_proposal(req: ProfileRequest):
         profile_result = asesor_financiero.evaluate_profile(req.answers)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    proposal = inversiones_ia.build_proposal(profile_result)
+    goal = req.goal.model_dump() if req.goal else None
+    proposal = inversiones_ia.build_proposal(profile_result, goal=goal)
     return store.create_proposal(req.client_name, profile_result, proposal)
 
 

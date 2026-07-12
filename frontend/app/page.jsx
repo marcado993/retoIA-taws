@@ -96,10 +96,10 @@ export default function HomePage() {
     refreshInsight().catch(() => {})
   }, [refresh, refreshInsight])
 
-  const submitProfile = async (clientName, answers) => {
+  const submitProfile = async (clientName, answers, goal) => {
     setLoading(true); setError('')
     try {
-      const rec = await api.createProposal(clientName, answers)
+      const rec = await api.createProposal(clientName, answers, goal)
       setRecord(rec)
       await refresh()
       refreshInsight(rec.profile_result?.profile?.label)
@@ -179,6 +179,9 @@ export default function HomePage() {
                     news={news}
                     loading={insightLoading}
                     onRefresh={() => refreshInsight(profileLabel)}
+                    record={record}
+                    market={market}
+                    onGoDashboard={() => changeTab('dashboard')}
                   />
                 )}
                 {tab === 'portafolios' && (

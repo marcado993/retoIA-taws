@@ -25,6 +25,8 @@ def get_questionnaire() -> dict:
         "profiles": rules["profiles"],
         "knockouts": rules["knockouts"],
         "scoring_formula": rules["scoring_formula"],
+        "methodology_note": rules.get("methodology_note", ""),
+        "references": rules.get("references", []),
     }
 
 
