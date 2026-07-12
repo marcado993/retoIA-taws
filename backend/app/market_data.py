@@ -10,7 +10,7 @@ import json
 import os
 import time
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 
 TTL_SECONDS = 300
@@ -34,6 +34,7 @@ SNAPSHOT = {
 }
 
 _cache: dict = {"ts": 0.0, "payload": None}
+_executor = ThreadPoolExecutor(max_workers=16)
 
 
 def get_cached_payload() -> dict | None:
@@ -81,19 +82,28 @@ def get_quotes_payload(tickers: list[str]) -> dict:
     quotes = {}
     live = 0
     network_down = offline
+
+    futures = {}
+    done = set()
+    if not network_down:
+        for t in tickers:
+            futures[t] = _executor.submit(_fetch_yahoo, t)
+        done, _ = wait(futures.values(), timeout=FETCH_BUDGET_SECONDS)
+
     for t in tickers:
-        if network_down:
-            snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
+        snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
+        if network_down or t not in futures:
             quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
             continue
-        try:
-            quotes[t] = _fetch_yahoo(t)
-            live += 1
-        except Exception:
-            # Primer fallo de red → asumimos sin conexión y resolvemos el resto por
-            # snapshot, para no colgar el endpoint esperando 8 timeouts seguidos.
-            network_down = True
-            snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
+
+        fut = futures[t]
+        if fut in done and not fut.cancelled():
+            try:
+                quotes[t] = fut.result()
+                live += 1
+            except Exception:
+                quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
+        else:
             quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
 
     payload = {

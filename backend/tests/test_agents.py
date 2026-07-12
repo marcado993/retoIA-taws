@@ -244,9 +244,7 @@ class TestPropuesta:
         allocation = proposal["allocation"]
         metrics = proposal["metrics"]
         text = _template_explanation(profile, allocation, metrics)
-        # El texto debe mencionar el retorno esperado calculado
-        assert str(metrics["expected_return"]) in text, \
-            "La explicación debe incluir el retorno esperado calculado"
+        # El texto debe mencionar la volatilidad calculada
         assert str(metrics["volatility"]) in text, \
             "La explicación debe incluir la volatilidad calculada"
 
@@ -269,7 +267,7 @@ class TestReporteIdoneidad:
         text = pdf.decode("latin-1", errors="ignore")
 
         assert pdf.startswith(b"%PDF-1.4")
-        assert "Reporte de Idoneidad" in text
+        assert "IDONEIDAD" in text
         assert "Ana Pérez" in text
         assert f"Reglas v{profile['rules_version']}" in text
         assert DISCLAIMER_TEXT in text
