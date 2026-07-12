@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { completarCuestionario, OPCIONES_MODERADAS } from './helpers.js'
+import { completarCuestionario, switchToAsesor, OPCIONES_MODERADAS } from './helpers.js'
 
 // HU3: validaciones duras — rechazo con motivo obligatorio y edición que suma 100%.
 test('rechazo sin motivo se bloquea y la edición valida la suma de pesos', async ({ page }) => {
   await completarCuestionario(page, 'Cliente Validar', OPCIONES_MODERADAS)
 
+  await switchToAsesor(page)
   await page.getByTestId('nav-asesor').click()
   await page.getByTestId('queue-row').first().click()
   await page.getByTestId('advisor-name').fill('María Gómez')

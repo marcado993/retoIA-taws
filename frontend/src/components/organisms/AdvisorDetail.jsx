@@ -11,6 +11,9 @@ import SlideOver from './SlideOver.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
 
 // HU3: el asesor autorizado aprueba, edita o rechaza la propuesta.
+// Este componente solo se monta en la vista "Asistente Financiero" (rol
+// asesor) — la separación de rol vive a nivel de ruta en app/page.jsx, no
+// aquí, así que no hay que repetir ninguna comprobación de permisos.
 export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
   const [advisor, setAdvisor] = useState('')
   const [notes, setNotes] = useState('')

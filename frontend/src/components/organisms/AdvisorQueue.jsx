@@ -19,7 +19,7 @@ export default function AdvisorQueue({ proposals, selectedId, onSelect, filter =
     // Split-view (spec §3): la cola queda fija a la izquierda (sticky) para no perder
     // el contexto de la lista mientras se audita un caso en el panel de la derecha.
     <div className="card queue-sticky">
-      <div className="card-head"><h3>Cola de revisión</h3>
+      <div className="card-head"><h3>Bandeja de Autorización</h3>
         <Chip tone="lime">{proposals.filter(p => p.status === 'pendiente').length} pendientes</Chip>
       </div>
 

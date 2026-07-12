@@ -7,6 +7,19 @@ import QuestionOption from '../molecules/QuestionOption.jsx'
 import AgentBubble from '../molecules/AgentBubble.jsx'
 import ProgressBar from '../molecules/ProgressBar.jsx'
 import InfoTooltip from '../molecules/InfoTooltip.jsx'
+import FieldGuideArrow from '../molecules/FieldGuideArrow.jsx'
+
+// Nombre: letras (con acentos/ñ), espacios, guiones y apóstrofes — mínimo 2 caracteres.
+const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ'’-]+(?:\s[A-Za-zÀ-ÖØ-öø-ÿ'’-]+)*$/
+const isValidName = (v) => v.trim().length >= 2 && NAME_REGEX.test(v.trim())
+
+// Orden de llenado guiado: la flecha salta al primer campo vacío/incompleto.
+const FIELD_GUIDE = [
+  { key: 'nombre', text: 'Escribe tu nombre para empezar' },
+  { key: 'meta', text: '¿Cuánto quieres acumular? (opcional, USD)' },
+  { key: 'plazo', text: '¿En cuántos años? (opcional)' },
+  { key: 'aporte', text: '¿Cuánto puedes aportar al mes? (opcional, USD)' },
+]
 
 // Microcopia educativa (spec §1): descripción corta por opción para traducir el
 // término financiero. Se indexa por `value` (únicos en las reglas v1) y es opcional:
@@ -60,8 +73,17 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
   const questions = questionnaire.questions
   const q = questions[step]
   const answered = Object.keys(answers).length
-  const complete = answered === questions.length && clientName.trim()
+  const nameValid = isValidName(clientName)
+  const complete = answered === questions.length && nameValid
 
+  // Guía dinámica: el primer campo de la lista que aún no está lleno/válido.
+  const fieldFilled = {
+    nombre: nameValid,
+    meta: targetAmount.trim() !== '',
+    plazo: targetYears.trim() !== '',
+    aporte: monthlyContrib.trim() !== '',
+  }
+  const activeField = FIELD_GUIDE.find(f => !fieldFilled[f.key])?.key ?? null
 
   const answerLabel = (qq) =>
     qq.options.find(o => o.value === answers[qq.id])
@@ -146,22 +168,33 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <FieldLabel>Tu nombre</FieldLabel>
+          <FieldGuideArrow active={activeField === 'nombre'} text={FIELD_GUIDE[0].text} />
           <Input data-testid="client-name" value={clientName} placeholder="Ej. Alex Rivera"
+            className={activeField === 'nombre' ? 'field-active' : clientName && !nameValid ? 'field-invalid' : ''}
             onChange={e => setClientName(e.target.value)} />
+          {clientName && !nameValid && (
+            <span className="field-error" data-testid="name-error">Escribe al menos 2 letras (sin números ni símbolos).</span>
+          )}
         </div>
         <div>
           <FieldLabel>Meta Objetivo (USD)</FieldLabel>
+          <FieldGuideArrow active={activeField === 'meta'} text={FIELD_GUIDE[1].text} />
           <Input type="number" value={targetAmount} placeholder="Ej. 1000000"
+            className={activeField === 'meta' ? 'field-active' : ''}
             onChange={e => setTargetAmount(e.target.value)} />
         </div>
         <div>
           <FieldLabel>Plazo Meta (Años)</FieldLabel>
+          <FieldGuideArrow active={activeField === 'plazo'} text={FIELD_GUIDE[2].text} />
           <Input type="number" value={targetYears} placeholder="Ej. 5"
+            className={activeField === 'plazo' ? 'field-active' : ''}
             onChange={e => setTargetYears(e.target.value)} />
         </div>
         <div>
           <FieldLabel>Aporte Mensual (USD)</FieldLabel>
+          <FieldGuideArrow active={activeField === 'aporte'} text={FIELD_GUIDE[3].text} />
           <Input type="number" value={monthlyContrib} placeholder="Ej. 2000"
+            className={activeField === 'aporte' ? 'field-active' : ''}
             onChange={e => setMonthlyContrib(e.target.value)} />
         </div>
       </div>
@@ -207,7 +240,7 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
       <Button data-testid="goto-review" disabled={!complete}
         onClick={() => setPhase('review')}>
         {complete ? 'Revisar mis respuestas →'
-          : !clientName.trim() && answered === questions.length ? 'Escribe tu nombre para continuar'
+          : !nameValid && answered === questions.length ? 'Escribe tu nombre para continuar'
           : `Responde ${questions.length - answered} pregunta(s) más`}
       </Button>
     </div>

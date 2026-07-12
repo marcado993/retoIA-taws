@@ -3,6 +3,7 @@ import SinglePanelTemplate from '../templates/SinglePanelTemplate.jsx'
 import AdvisorQueue from '../organisms/AdvisorQueue.jsx'
 import AdvisorDetail from '../organisms/AdvisorDetail.jsx'
 import AdvisorStats from '../organisms/AdvisorStats.jsx'
+import ApprovalHistory from '../organisms/ApprovalHistory.jsx'
 import AdvisorDetailSkeleton from '../molecules/AdvisorDetailSkeleton.jsx'
 
 export default function AdvisorPage({ proposals, onDecide, error }) {
@@ -12,8 +13,13 @@ export default function AdvisorPage({ proposals, onDecide, error }) {
 
   return (
     <SinglePanelTemplate>
-      {/* Estadísticas de la cartera del asesor (solo si ya hay propuestas). */}
-      {proposals.length > 0 && <AdvisorStats proposals={proposals} />}
+      {/* Dashboard de casos: panorama + historial, antes de la revisión activa. */}
+      {proposals.length > 0 && (
+        <>
+          <AdvisorStats proposals={proposals} />
+          <ApprovalHistory proposals={proposals} />
+        </>
+      )}
 
       <div className="advisor-grid">
         <AdvisorQueue proposals={proposals} selectedId={selectedId} onSelect={setSelectedId}

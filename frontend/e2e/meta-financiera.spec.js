@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { completarCuestionario, OPCIONES_MODERADAS } from './helpers.js'
+import { completarCuestionario, switchToAsesor, OPCIONES_MODERADAS } from './helpers.js'
 
 // HU2 + HU3 (enfoque de agente personalizado): la meta financiera del cliente
 // (monto, plazo, aporte mensual) debe verse como comparación estructurada —
@@ -22,7 +22,7 @@ test('la meta financiera aparece como comparación estructurada, sin afirmacione
   expect(explanation).not.toContain('grandes inversores')
 
   // El asesor también debe ver la meta como bloque estructurado, no en el párrafo.
-  await page.getByTestId('nav-asesor').click()
+  await switchToAsesor(page)
   await page.getByTestId('queue-row').first().click()
   await expect(page.getByTestId('goal-fit-card')).toBeVisible()
 })

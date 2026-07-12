@@ -11,12 +11,12 @@ export default function InteractiveGuide({ currentTab, setTab, record, proposals
 
   if (!record) {
     stepTitle = 'Paso 1: Diagnóstico de Perfil de Riesgo'
-    stepDesc = 'Comienza completando tu cuestionario de perfilamiento en el Dashboard para que los agentes de IA construyan tu propuesta de portafolio.'
+    stepDesc = 'Comienza completando tu cuestionario de perfilamiento en Mi Plan Financiero para que los agentes de IA construyan tu propuesta de portafolio.'
     actionLabel = 'Ir al Formulario'
     targetTab = 'dashboard'
   } else if (record && record.status === 'pendiente') {
     stepTitle = 'Paso 2: Aprobación del Asesor (HITL Loop)'
-    stepDesc = 'La propuesta se generó en estado "Pendiente". El Asesor Financiero Humano debe auditar, ajustar pesos si es necesario, y Aprobar o Rechazar.'
+    stepDesc = 'La propuesta se generó en estado "Pendiente". Cambia a "Asistente Financiero" en la barra superior para auditar, ajustar pesos si es necesario, y aprobar o rechazar.'
     actionLabel = 'Ir al Panel Asesor'
     targetTab = 'asesor'
   } else if (record && (record.status === 'aprobada' || record.status === 'aprobada_con_cambios')) {

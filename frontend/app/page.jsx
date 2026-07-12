@@ -21,18 +21,26 @@ import InteractiveGuide from '../src/components/molecules/InteractiveGuide.jsx'
 import JuryDemoPanel from '../src/components/organisms/JuryDemoPanel.jsx'
 
 
-const TABS = [
-  ['dashboard',  'Dashboard'],
-  ['analisis',   'Análisis IA'],
+// Cada rol ve SOLO sus pestañas — no es un permiso dentro de la misma vista,
+// es una vista distinta. "Asistente Financiero IA" (cliente) nunca ve el Panel
+// Asesor ni la auditoría completa; "Asistente Financiero" (asesor) solo ve su
+// dashboard de casos (estadísticas + aprobar/editar/rechazar) y el registro.
+const CLIENT_TABS = [
+  ['dashboard',  'Mi Plan Financiero'],
+  ['analisis',   'Diagnóstico de Riesgo'],
   ['portafolios','Portafolios'],
+  ['reglas',     'Reglas'],
+]
+const ADVISOR_TABS = [
   ['asesor',     'Panel Asesor'],
   ['auditoria',  'Auditoría'],
-  ['reglas',     'Reglas'],
 ]
 
 export default function HomePage() {
   const [tab, setTab]               = useState('dashboard')
+  const [role, setRole]             = useState('cliente')
   const [tabTransitioning, setTabTransitioning] = useState(false)
+  const [changingRole, setChangingRole] = useState(false)
   const [questionnaire, setQuestionnaire] = useState(null)
   const [catalog, setCatalog]       = useState(null)
   const [record, setRecord]         = useState(null)
@@ -47,16 +55,34 @@ export default function HomePage() {
   
   const contentRef = useRef(null)
 
-  // Cambio de pestañas interactivo con animación y loader
-  const changeTab = (id) => {
-    if (id === tab) return
+  // Qué rol es dueño de cada pestaña — sirve para que CUALQUIER navegación
+  // (nav pills, el switch de rol, o los atajos de InteractiveGuide) cruce de
+  // rol automáticamente cuando el destino le pertenece al otro rol.
+  const TAB_ROLE = {
+    dashboard: 'cliente', analisis: 'cliente', portafolios: 'cliente', reglas: 'cliente',
+    asesor: 'asesor', auditoria: 'asesor',
+  }
+
+  // Navegación unificada: cambia de pestaña y, si hace falta, de rol también
+  // — con su propio texto de carga ("Cambiando rol…") para distinguirlo de
+  // un simple cambio de pestaña dentro del mismo rol.
+  const navigateTo = (id) => {
+    const neededRole = TAB_ROLE[id] ?? role
+    if (id === tab && neededRole === role) return
+    const switchingRole = neededRole !== role
     setTabTransitioning(true)
+    setChangingRole(switchingRole)
     setTimeout(() => {
+      setRole(neededRole)
       setTab(id)
       setError('')
       setTabTransitioning(false)
-    }, 250) // Simulación rápida de transición de página
+      setChangingRole(false)
+    }, switchingRole ? 300 : 250)
   }
+
+  const changeTab = (id) => navigateTo(id)
+  const changeRole = (newRole) => navigateTo(newRole === 'asesor' ? 'asesor' : 'dashboard')
 
   // Animación de GSAP al renderizar el contenido de la pestaña
   useEffect(() => {
@@ -127,13 +153,14 @@ export default function HomePage() {
   }
 
   const profileLabel = record?.profile_result?.profile?.label
+  const tabs = role === 'asesor' ? ADVISOR_TABS : CLIENT_TABS
 
   return (
     <>
       {/* WCAG 2.4.1: saltar navegación — destino del skip-link en layout.jsx */}
       <div className="page">
         {/* Header con TopBar */}
-        <TopBar tabs={TABS} active={tab} onChange={changeTab} />
+        <TopBar tabs={tabs} active={tab} onChange={changeTab} role={role} onRoleChange={changeRole} />
 
         {/* main con id para el skip-link */}
         <main id="main-content" className="mt-4" tabIndex={-1}>
@@ -152,15 +179,20 @@ export default function HomePage() {
 
           {tabTransitioning ? (
             /* Visual indicator during page transitions (ALGO DE CARGA) */
-            <div className="flex flex-col items-center justify-center py-20" role="status" aria-live="polite">
+            <div className="flex flex-col items-center justify-center py-20" role="status" aria-live="polite"
+              data-testid="transition-loading">
               <div className="w-10 h-10 border-4 border-green-soft border-t-green rounded-full animate-spin mb-4" />
-              <p className="text-brand-ink font-semibold animate-pulse">Cargando...</p>
+              <p className="text-brand-ink font-semibold animate-pulse">
+                {changingRole ? 'Cambiando rol…' : 'Cargando...'}
+              </p>
             </div>
           ) : (
             <div ref={contentRef} className="tab-content-animate">
-              {/* Layout a pantalla completa / centrado para todos los paneles */}
+              {/* Layout a pantalla completa / centrado para todos los paneles.
+                  Cada bloque exige el rol correcto además de la pestaña activa:
+                  así ningún contenido de un rol se filtra al otro por accidente. */}
               <div className="flex flex-col gap-6">
-                {tab === 'dashboard' && (
+                {tab === 'dashboard' && role === 'cliente' && (
                   <DashboardPage
                     questionnaire={questionnaire}
                     record={record}
@@ -173,7 +205,7 @@ export default function HomePage() {
                     onSeeRules={() => changeTab('reglas')}
                   />
                 )}
-                {tab === 'analisis' && (
+                {tab === 'analisis' && role === 'cliente' && (
                   <AiInsightPanel
                     insight={insight}
                     news={news}
@@ -184,14 +216,14 @@ export default function HomePage() {
                     onGoDashboard={() => changeTab('dashboard')}
                   />
                 )}
-                {tab === 'portafolios' && (
+                {tab === 'portafolios' && role === 'cliente' && (
                   <PortfoliosPage catalog={catalog} questionnaire={questionnaire} />
                 )}
-                {tab === 'asesor' && (
+                {tab === 'reglas' && role === 'cliente' && <RulesPage questionnaire={questionnaire} />}
+                {tab === 'asesor' && role === 'asesor' && (
                   <AdvisorPage proposals={proposals} onDecide={decide} error={error} />
                 )}
-                {tab === 'auditoria' && <AuditPage entries={audit} />}
-                {tab === 'reglas'    && <RulesPage questionnaire={questionnaire} />}
+                {tab === 'auditoria' && role === 'asesor' && <AuditPage entries={audit} />}
               </div>
             </div>
           )}
