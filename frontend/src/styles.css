@@ -162,7 +162,15 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 }
 .role-switch-btn:hover { color: var(--ink); }
 .role-switch-btn.active { background: var(--ink); color: #fff; }
+.role-switch-label-short { display: none; }
 @media (max-width: 900px) { .role-switch-btn { padding: 6px 9px; font-size: 10.5px; } }
+/* Bajo 480px el texto completo ("Asistente Financiero IA") no cabe junto al
+   logo y el botón hamburguesa: se muestra la etiqueta corta en su lugar. */
+@media (max-width: 480px) {
+  .role-switch-label-full { display: none; }
+  .role-switch-label-short { display: inline; }
+  .role-switch-btn { padding: 6px 10px; font-size: 11px; }
+}
 
 .logo {
   font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: -0.01em;
@@ -434,6 +442,21 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 
 .ai-panel-body { padding: 20px 24px; }
 
+/* Grid de 2 columnas (Diagnóstico de Riesgo): alertas/ajustes accionables a la
+   izquierda, contexto/noticias de apoyo a la derecha. En pantallas angostas
+   colapsa a una sola columna en el mismo orden de lectura. 900px cubre tablet
+   horizontal y pantalla de escritorio partida a la mitad. */
+.ai-panel-grid { display: flex; flex-direction: column; gap: 18px; }
+@media (min-width: 900px) {
+  .ai-panel-grid { display: grid; grid-template-columns: 1.25fr 1fr; align-items: start; gap: 20px; }
+}
+.ai-panel-main, .ai-panel-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ai-panel-empty-hint {
+  font-size: 13px; color: var(--muted); line-height: 1.5; text-align: center;
+  padding: 24px 16px; background: var(--slate-bg); border: 1px dashed var(--border-dark);
+  border-radius: var(--radius-card);
+}
+
 /* Tu propuesta (HU2 visible aquí): treemap primero, cifras después, texto al final. */
 .ai-my-proposal {
   background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-card);
@@ -595,17 +618,44 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .nc-neu { background: rgba(100,116,139,0.1); color: var(--muted); padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700; }
 .ai-news-arrow { margin-left: 6px; font-size: 10px; }
 
-.ai-news-list { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
-.ai-news-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sharp); border: 1px solid transparent; transition: var(--transition); }
-.ai-news-item:hover { background: var(--slate-bg); border-color: var(--border); }
-.ai-news-sent { font-size: 12px; flex-shrink: 0; margin-top: 2px; }
-.news-pos .ai-news-sent { color: var(--green); }
-.news-neg .ai-news-sent { color: var(--red); }
-.news-neu .ai-news-sent { color: var(--muted); }
-.ai-news-content { display: flex; flex-direction: column; gap: 2px; }
-.ai-news-title { color: var(--ink); line-height: 1.45; text-decoration: none; font-weight: 600; font-size: 13px; }
-.ai-news-title:hover { color: var(--green); text-decoration: underline; }
-.ai-news-source { font-size: 11px; color: var(--muted); }
+/* Feed de noticias EN TARJETAS (no filas de texto plano): ícono de sentimiento
+   a la izquierda ocupando el lugar de una miniatura, etiqueta de tono,
+   titular en negrita y fuente + antigüedad abajo — mismo lenguaje visual que
+   un feed editorial real. El titular se queda en tinta neutra (no verde/
+   subrayado) porque la TARJETA COMPLETA es el elemento clicable, no el texto
+   suelto — distinto del patrón de enlace inline ("Ver detalles"). */
+.ai-news-list { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.news-card-link {
+  display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px;
+  border: 1px solid var(--border); border-radius: var(--radius-card);
+  background: var(--card); text-decoration: none; color: inherit;
+  transition: var(--transition);
+}
+a.news-card-link { cursor: pointer; }
+a.news-card-link:hover, a.news-card-link:focus-visible {
+  border-color: var(--green); box-shadow: var(--shadow-hover);
+  background: var(--green-soft); transform: translateY(-1px);
+}
+.news-card-icon {
+  width: 42px; height: 42px; border-radius: var(--radius-card); flex-shrink: 0;
+  display: grid; place-items: center; font-size: 18px;
+}
+.news-pos .news-card-icon { background: var(--green-soft); }
+.news-neg .news-card-icon { background: var(--red-soft); }
+.news-neu .news-card-icon { background: var(--slate-bg); }
+.news-card-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.news-card-tag {
+  align-self: flex-start; font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 2px 9px; border-radius: var(--radius-pill);
+}
+.news-pos .news-card-tag { background: var(--green-soft); color: var(--green-hover); }
+.news-neg .news-card-tag { background: var(--red-soft); color: var(--red); }
+.news-neu .news-card-tag { background: var(--slate-bg); color: var(--muted); border: 1px solid var(--border); }
+.news-card-title {
+  font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.news-card-meta { font-size: 11px; color: var(--muted); font-weight: 600; }
 
 .ai-loading { display: flex; align-items: center; gap: 10px; padding: 16px 0; color: var(--muted); font-size: 13px; }
 .ai-loading-dots { display: flex; gap: 4px; }
@@ -754,8 +804,8 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .knockout-source { font-style: italic; opacity: 0.85; }
 .reference-list { list-style: decimal; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
 .reference-item { font-size: 12.5px; line-height: 1.5; color: var(--ink-mid); }
-.reference-item a { color: var(--blue); text-decoration: none; }
-.reference-item a:hover { text-decoration: underline; }
+.reference-item a { color: var(--green); text-decoration: underline; transition: var(--transition); }
+.reference-item a:hover { color: var(--green-hover); }
 
 /* ── Agent Bubble ── */
 .agent-msg { display: flex; gap: 10px; align-items: flex-start; margin: 6px 0 16px; }
@@ -1408,18 +1458,48 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
    RESPONSIVIDAD — Mobile & Tablet
    ════════════════════════════════════════════════════════════════════════ */
 
-/* ── TopBar: collapsar a stack vertical en pantallas angostas ──────────── */
+/* ── TopBar: menú hamburguesa en móvil ──────────────────────────────────
+   La barra horizontal de pestañas no cabe legible en pantallas angostas, así
+   que se reemplaza por un botón hamburguesa que despliega la navegación en
+   un panel vertical. Logo + RoleSwitch (el rol activo IA/humano) se
+   mantienen siempre visibles — es la información que no debe esconderse. */
+.topbar-menu-btn {
+  display: none; border: 1px solid var(--border); background: var(--card);
+  width: 38px; height: 38px; border-radius: var(--radius-sharp);
+  align-items: center; justify-content: center; cursor: pointer;
+  flex-shrink: 0; transition: var(--transition); padding: 0;
+}
+.topbar-menu-btn:hover { border-color: var(--green); background: var(--green-soft); }
+.hamburger { width: 18px; height: 13px; position: relative; display: block; }
+.hamburger span {
+  position: absolute; left: 0; width: 100%; height: 2px; background: var(--ink);
+  border-radius: 2px; transition: var(--transition);
+}
+.hamburger span:nth-child(1) { top: 0; }
+.hamburger span:nth-child(2) { top: 5.5px; }
+.hamburger span:nth-child(3) { top: 11px; }
+.hamburger.open span:nth-child(1) { top: 5.5px; transform: rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { top: 5.5px; transform: rotate(-45deg); }
+
+.topbar-mobile-menu {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--card); border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-hover); padding: 10px 16px 16px; z-index: 99;
+  animation: slideDown 0.2s ease-out;
+}
+.nav-pills-mobile { flex-direction: column; width: 100%; gap: 4px; }
+.nav-pills-mobile .nav-pill { width: 100%; text-align: left; padding: 12px 14px; font-size: 14px; }
+.nav-pills-mobile .nav-pill.active::after { display: none; }
+.nav-pills-mobile .nav-pill.active { background: var(--green-soft); }
+
 @media (max-width: 768px) {
-  .topbar {
-    flex-wrap: wrap; height: auto; padding: 10px 16px; gap: 8px;
-  }
-  .topbar-left { width: 100%; justify-content: space-between; }
-  .nav-pills {
-    width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
-    gap: 2px; padding-bottom: 2px;
-  }
-  .nav-pill { padding: 6px 10px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
-  .nav-pill.active::after { bottom: -10px; }
+  /* `position: sticky` se mantiene (NO se sobreescribe a relative): sticky ya
+     funciona como contenedor de posicionamiento para el menú absoluto de abajo,
+     y perderlo aquí eliminaba el sticky-on-scroll + sombra/blur al hacer scroll. */
+  .topbar { height: auto; padding: 10px 16px; gap: 10px; }
+  .nav-pills-desktop { display: none; }
+  .topbar-menu-btn { display: flex; }
   .avatar { display: none; }
 }
 
@@ -1492,13 +1572,29 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 }
 
 /* ── Prevenir desbordamiento horizontal global ─────────────────────────── */
-html, body { overflow-x: hidden; }
-.page { overflow-x: hidden; }
+/* `clip` (no `hidden`) a propósito: `overflow-x: hidden` sin overflow-y fuerza
+   el eje Y a `auto` (regla CSS de "no mezclar visible con no-visible"), lo que
+   convierte a .page en un contenedor de scroll propio y rompe TODO
+   `position: sticky` de sus descendientes (topbar, colas del asesor, barra de
+   progreso del cuestionario) — quedaban "pegados" a .page en vez de al
+   viewport, o sea, dejaban de pegarse en absoluto. `clip` recorta el
+   desbordamiento horizontal sin crear ese contenedor de scroll. */
+html, body { overflow-x: clip; }
+.page { overflow-x: clip; }
 
 /* ════════════════════════════════════════════════════════════════════════
    RULES REDESIGN — Fintech-grade rules explorer
    ════════════════════════════════════════════════════════════════════════ */
-.rules-redesign { display: flex; flex-direction: column; gap: 24px; max-width: 900px; margin: 0 auto; }
+.rules-redesign { display: flex; flex-direction: column; gap: 24px; max-width: 1180px; margin: 0 auto; }
+
+/* Layout de 2 columnas en pantallas grandes: reduce el scroll vertical al
+   poner preguntas (columna principal) junto a perfiles/knockouts (lateral),
+   en vez de apilar todo en una sola columna angosta. */
+.rules-layout { display: flex; flex-direction: column; gap: 24px; }
+@media (min-width: 900px) {
+  .rules-layout { display: grid; grid-template-columns: 1.3fr 1fr; align-items: start; gap: 24px; }
+}
+.rules-main-col, .rules-side-col { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 
 .rules-header {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
@@ -1537,7 +1633,9 @@ html, body { overflow-x: hidden; }
 .rules-section-icon { font-size: 20px; }
 .rules-section-desc { font-size: 13px; color: var(--ink-mid); line-height: 1.55; margin: -8px 0 14px; }
 
-/* Accordion */
+/* Accordion — affordance clara de que es interactivo: elevación en hover,
+   texto "Ver detalle"/"Ocultar" siempre visible junto a la flecha, y un
+   pequeño rebote de la flecha al cargar la página para enseñar el patrón. */
 .rules-accordion-list { display: flex; flex-direction: column; gap: 8px; }
 .rules-accordion {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-card);
@@ -1549,7 +1647,11 @@ html, body { overflow-x: hidden; }
   padding: 14px 18px; border: 0; background: transparent; cursor: pointer;
   font-family: inherit; transition: var(--transition); gap: 12px;
 }
-.rules-accordion-trigger:hover { background: var(--slate-bg); }
+.rules-accordion-trigger:hover {
+  background: var(--green-soft); transform: translateX(2px);
+}
+.rules-accordion-trigger:hover .rules-accordion-hint { color: var(--green-hover); }
+.rules-accordion-trigger:hover .rules-accordion-arrow { color: var(--green); }
 .rules-accordion-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .rules-accordion-icon { font-size: 18px; flex-shrink: 0; }
 .rules-accordion-title {
@@ -1557,10 +1659,28 @@ html, body { overflow-x: hidden; }
   white-space: normal; line-height: 1.4;
 }
 .rules-accordion-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.rules-accordion-hint {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+  transition: var(--transition);
+}
+@media (max-width: 480px) { .rules-accordion-hint { display: none; } }
 .rules-accordion-arrow {
-  font-size: 12px; color: var(--muted); transition: transform 0.2s ease;
+  font-size: 12px; color: var(--muted); transition: transform 0.2s ease, color 0.2s ease;
 }
 .rules-accordion-arrow.open { transform: rotate(180deg); }
+/* Rebote sutil una sola vez al montar, para enseñar que la flecha es clicable. */
+.rules-accordion:not(.open) .rules-accordion-arrow {
+  animation: rules-arrow-hint 1.6s ease-in-out 0.6s 2;
+}
+@keyframes rules-arrow-hint {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(3px); }
+  60% { transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rules-accordion:not(.open) .rules-accordion-arrow { animation: none; }
+}
 .rules-accordion-body { padding: 0 18px 18px; border-top: 1px solid var(--border); }
 
 .rules-question-detail { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; }
@@ -1570,10 +1690,16 @@ html, body { overflow-x: hidden; }
   padding-left: 12px; border-left: 2px solid var(--border);
 }
 
+/* Flexbox (no grid) a propósito: cuando la última fila queda con una sola
+   tarjeta huérfana, CSS Grid la deja pegada a la izquierda porque las
+   columnas son fijas para todas las filas — flex-wrap SÍ centra cada línea
+   de forma independiente, así que la fila incompleta también queda centrada
+   (el problema reportado: tarjetas descentradas respecto al contenedor). */
 .rules-options-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
 }
 .rules-option-card {
+  flex: 0 1 180px; min-width: 150px; max-width: 220px;
   background: var(--slate-bg); border: 1px solid var(--border); border-radius: var(--radius-sharp);
   padding: 10px 12px;
 }
@@ -1628,12 +1754,12 @@ html, body { overflow-x: hidden; }
   padding: 18px 18px 18px 36px; box-shadow: var(--shadow-card);
 }
 .rules-ref-item { font-size: 13px; line-height: 1.5; color: var(--ink-mid); }
-.rules-ref-item a { color: var(--blue); text-decoration: none; font-weight: 500; }
-.rules-ref-item a:hover { text-decoration: underline; }
+.rules-ref-item a { color: var(--green); text-decoration: underline; font-weight: 500; transition: var(--transition); }
+.rules-ref-item a:hover { color: var(--green-hover); }
 
 @media (max-width: 640px) {
   .rules-header { flex-direction: column; }
   .rules-main-title { font-size: 20px; }
   .rules-profiles-grid { grid-template-columns: 1fr; }
-  .rules-options-grid { grid-template-columns: 1fr; }
+  .rules-option-card { flex: 1 1 100%; max-width: none; }
 }
