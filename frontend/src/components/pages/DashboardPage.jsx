@@ -6,6 +6,7 @@ import LandingTemplate from '../templates/LandingTemplate.jsx'
 import QuestionnaireCard from '../organisms/QuestionnaireCard.jsx'
 import BreakdownCard from '../organisms/BreakdownCard.jsx'
 import ProposalCard from '../organisms/ProposalCard.jsx'
+import ProposalSkeleton from '../molecules/ProposalSkeleton.jsx'
 import HeroPanel from '../organisms/HeroPanel.jsx'
 import StatGrid from '../organisms/StatGrid.jsx'
 
@@ -42,8 +43,12 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
       left={
         <>
           {!record
-            ? <QuestionnaireCard questionnaire={questionnaire} onSubmit={onSubmit}
-                loading={loading} onSeeRules={onSeeRules} initialAnswers={initialAnswers} />
+            ? (loading
+                // Spec §4: al enviar el cuestionario, el esqueleto reemplaza al formulario
+                // e imita la propuesta que se está generando (evita el spinner genérico).
+                ? <ProposalSkeleton />
+                : <QuestionnaireCard questionnaire={questionnaire} onSubmit={onSubmit}
+                    loading={loading} onSeeRules={onSeeRules} initialAnswers={initialAnswers} />)
             : <>
                 <BreakdownCard profileResult={pr} />
                 <ProposalCard record={record} market={market} />

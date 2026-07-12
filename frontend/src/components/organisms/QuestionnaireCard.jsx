@@ -6,6 +6,43 @@ import Button from '../atoms/Button.jsx'
 import QuestionOption from '../molecules/QuestionOption.jsx'
 import AgentBubble from '../molecules/AgentBubble.jsx'
 import ProgressBar from '../molecules/ProgressBar.jsx'
+import InfoTooltip from '../molecules/InfoTooltip.jsx'
+
+// Microcopia educativa (spec §1): descripción corta por opción para traducir el
+// término financiero. Se indexa por `value` (únicos en las reglas v1) y es opcional:
+// si una opción no está aquí, simplemente no muestra hint.
+const OPTION_HINTS = {
+  // objetivo
+  preservar: 'Menos rendimiento, pero tu capital se mueve poco.',
+  ingresos: 'Flujo periódico (ej. dividendos), con crecimiento limitado.',
+  balanceado: 'Mezcla de crecimiento y estabilidad; sube y baja moderadamente.',
+  crecimiento: 'Mayor potencial a cambio de más altibajos en el camino.',
+  // horizonte
+  corto: 'Necesitarás liquidez pronto: conviene evitar la volatilidad.',
+  medio_corto: 'Hay poco margen para recuperarse de una caída.',
+  medio: 'Tiempo suficiente para absorber ciclos de mercado.',
+  largo: 'El plazo largo permite tolerar más volatilidad.',
+  // reaccion
+  vender_todo: 'Vender en la caída convierte una pérdida temporal en real.',
+  vender_parte: 'Reduces riesgo, pero materializas parte de la pérdida.',
+  mantener: 'Aguantar el ciclo suele recuperar el valor con el tiempo.',
+  comprar: 'Comprar barato exige nervios de acero y liquidez disponible.',
+  // experiencia
+  ninguna: 'Empezaremos con instrumentos simples y explicados.',
+  basica: 'Conoces productos de bajo riesgo como depósitos a plazo.',
+  intermedia: 'Ya has usado fondos o bonos: entiendes el riesgo básico.',
+  avanzada: 'Manejas acciones o ETFs y su volatilidad.',
+  // ingresos
+  inestables: 'Ingresos impredecibles piden más colchón de seguridad.',
+  algo_estables: 'Variabilidad moderada: riesgo medio es razonable.',
+  estables: 'Ingresos fijos permiten planificar aportes constantes.',
+  muy_estables: 'Estabilidad alta habilita asumir más riesgo de mercado.',
+  // emergencia
+  no: 'Sin colchón, una caída podría forzar ventas en mal momento.',
+  parcial: 'Cubre poco: conviene reforzar la liquidez antes de arriesgar.',
+  tres_meses: 'Colchón razonable para afrontar imprevistos.',
+  seis_meses: 'Liquidez sólida: puedes dejar invertir sin presión.',
+}
 
 // HU1: el Asesor Financiero IA realiza el cuestionario de perfilamiento.
 // Nielsen: H1 progreso visible · H3 volver y cambiar respuestas · H5 no se puede
@@ -127,9 +164,12 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
         </div>
       </div>
 
-      <ProgressBar current={answered} total={questions.length}
-        label={`Pregunta ${Math.min(step + 1, questions.length)} de ${questions.length} · ${answered} respondida(s)`} />
-
+      {/* Indicador de progreso siempre visible (spec §1): barra pegajosa arriba
+          del bloque de preguntas para que el usuario sepa cuánto falta. */}
+      <div className="q-progress-sticky">
+        <ProgressBar current={answered} total={questions.length}
+          label={`Pregunta ${Math.min(step + 1, questions.length)} de ${questions.length} · ${answered} respondida(s)`} />
+      </div>
 
       <div className="q-progress">
         {questions.map((qq, i) => (
@@ -140,17 +180,20 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
         ))}
       </div>
 
-      <p className="q-text">{q.text}</p>
-      <p className="q-help">
-        <svg className="w-4 h-4 text-brand-green inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'text-bottom' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        {q.help} · Esta pregunta pesa {q.weight}% de tu puntaje.
-      </p>
+      {/* Transparencia accesible (spec §1): el "por qué" vive en un tooltip discreto
+          junto a la pregunta, no en un bloque de texto que compita con las opciones. */}
+      <div className="q-text-row">
+        <p className="q-text">{q.text}</p>
+        <InfoTooltip>
+          {q.help} Esta pregunta pesa <strong>{q.weight}%</strong> de tu puntaje final,
+          con la fórmula pública de las reglas v{questionnaire.rules_version}.
+        </InfoTooltip>
+      </div>
 
       <div className="q-options">
         {q.options.map(o => (
           <QuestionOption key={o.value} label={o.label} points={o.points}
+            hint={OPTION_HINTS[o.value]}
             selected={answers[q.id] === o.value}
             onSelect={() => {
               setAnswers({ ...answers, [q.id]: o.value })

@@ -14,7 +14,8 @@ export default function HeroPanel({ clientName, profileResult, onSeeRules }) {
             ▲ Perfil {profileResult.profile.label}
           </Chip>
           <Gauge score={profileResult.score}
-            label={`de 100 · reglas v${profileResult.rules_version}`} />
+            label={`de 100 · reglas v${profileResult.rules_version}`}
+            tooltip={`Puntaje ${profileResult.score}/100 · Perfil ${profileResult.profile.label}`} />
           <Button className="hero-btn" onClick={onSeeRules}>Ver cómo se calculó</Button>
         </>
       ) : (

@@ -158,8 +158,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div ref={contentRef} className="tab-content-animate">
-              
-              /* Layout a pantalla completa / centrado para todos los paneles */
+              {/* Layout a pantalla completa / centrado para todos los paneles */}
               <div className="flex flex-col gap-6">
                 {tab === 'dashboard' && (
                   <DashboardPage
