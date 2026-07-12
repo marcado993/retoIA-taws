@@ -80,21 +80,32 @@ def get_quotes_payload(tickers: list[str]) -> dict:
 
     quotes = {}
     live = 0
-    network_down = offline
-    for t in tickers:
-        if network_down:
+
+    if offline:
+        for t in tickers:
             snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
             quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
-            continue
-        try:
-            quotes[t] = _fetch_yahoo(t)
-            live += 1
-        except Exception:
-            # Primer fallo de red → asumimos sin conexión y resolvemos el resto por
-            # snapshot, para no colgar el endpoint esperando 8 timeouts seguidos.
-            network_down = True
-            snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
-            quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
+    else:
+        from concurrent.futures import as_completed, TimeoutError as FuturesTimeout
+        futures = {}
+        with ThreadPoolExecutor(max_workers=len(tickers)) as pool:
+            for t in tickers:
+                futures[pool.submit(_fetch_yahoo, t)] = t
+            try:
+                for fut in as_completed(futures, timeout=FETCH_BUDGET_SECONDS):
+                    ticker = futures[fut]
+                    try:
+                        quotes[ticker] = fut.result()
+                        live += 1
+                    except Exception:
+                        snap = SNAPSHOT.get(ticker, {"price": None, "change_pct": None})
+                        quotes[ticker] = {**snap, "currency": "USD", "source": "snapshot"}
+            except FuturesTimeout:
+                pass
+        for t in tickers:
+            if t not in quotes:
+                snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
+                quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
 
     payload = {
         "asof": datetime.now(timezone.utc).isoformat(),

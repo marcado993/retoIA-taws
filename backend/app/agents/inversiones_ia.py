@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -422,38 +423,57 @@ def _gemini_model() -> str:
     return os.environ.get("GEMINI_MODEL", _GEMINI_DEFAULT_MODEL)
 
 
+_GEMINI_TIMEOUT = 10
+_GEMINI_RETRIES = 2
+
+
 def _call_gemini(prompt: str, max_tokens: int = 400) -> str | None:
     """Llama a la API REST de Google Gemini (generateContent). Devuelve el texto
     generado o None si no hay `GEMINI_API_KEY` o la petición falla — así la demo
     nunca se rompe y cae a la plantilla determinística.
 
-    Reto del patrocinador 'Best Use of Google Gemini': esta es la única puerta de
-    entrada al LLM; todo el sistema narra a través de Gemini."""
+    Resiliencia: timeout explícito de 10 s y hasta 2 reintentos ante errores
+    transitorios (timeout, 429, 5xx). Si todos fallan, retorna None y el sistema
+    cae al fallback determinístico sin que el frontend colapse."""
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:
         return None
-    try:
-        body = json.dumps({
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4},
-        }).encode()
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{_gemini_model()}:generateContent"
-        )
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={
-                "x-goog-api-key": api_key,
-                "content-type": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            data = json.load(resp)
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return None  # la demo nunca se rompe: cae a la plantilla determinística
+
+    body = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4},
+    }).encode()
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{_gemini_model()}:generateContent"
+    )
+    headers = {"x-goog-api-key": api_key, "content-type": "application/json"}
+
+    last_err: Exception | None = None
+    for attempt in range(_GEMINI_RETRIES):
+        try:
+            req = urllib.request.Request(url, data=body, headers=headers)
+            with urllib.request.urlopen(req, timeout=_GEMINI_TIMEOUT) as resp:
+                data = json.load(resp)
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except urllib.error.HTTPError as e:
+            last_err = e
+            if e.code in (429, 500, 502, 503):
+                import time
+                time.sleep(min(1.0 * (attempt + 1), 3.0))
+                continue
+            break
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_err = e
+            import time
+            time.sleep(min(1.0 * (attempt + 1), 3.0))
+            continue
+        except Exception:
+            break
+
+    if last_err:
+        logger.info("[GEMINI] API falló tras %d intento(s): %s", _GEMINI_RETRIES, last_err)
+    return None
 
 
 def _try_llm_explanation(profile_result: dict, allocation: list, metrics: dict) -> str | None:
