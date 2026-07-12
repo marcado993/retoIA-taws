@@ -1,36 +1,28 @@
 """Generación del Reporte de Idoneidad en PDF.
-
 Implementación autocontenida con la biblioteca estándar para evitar
 dependencias adicionales. El PDF incluye el timestamp, el disclaimer legal,
 la versión de reglas, la justificación, la asignación de activos y el nombre
 del asesor que validó la propuesta.
 """
-
 from __future__ import annotations
-
 from datetime import datetime
 from typing import Any
-
 from app.agents import asesor_financiero
-
 
 PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
 MARGIN_X = 48
 TOP_Y = 790
 BOTTOM_Y = 84
-
 DISCLAIMER_TEXT = (
     '"Este documento no constituye una recomendación personalizada, sino una '
     'propuesta sujeta a revisión humana."'
 )
-
 DISCLAIMER_NOTE = (
     'La IA genera esta propuesta como apoyo documental y no asume responsabilidad '
     'directa sobre la decisión final ni sobre su ejecución.'
 )
-
-TREEMAP_COLORS = [
+TICKER_COLORS = [
     (0.06, 0.73, 0.51),  # Emerald (#10B981)
     (0.15, 0.39, 0.92),  # Trust Blue (#2563EB)
     (0.96, 0.60, 0.16),  # Amber (#F59E0B)
@@ -43,10 +35,8 @@ TREEMAP_COLORS = [
     (0.78, 0.66, 0.38)   # Gold/Sand (#D97706)
 ]
 
-
 def _escape_pdf_text(text: str) -> str:
     return text.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
-
 
 def _wrap_text(text: str, max_chars: int) -> list[str]:
     words = text.split()
@@ -65,17 +55,14 @@ def _wrap_text(text: str, max_chars: int) -> list[str]:
     lines.append(current)
     return lines
 
-
 def _format_timestamp(value: datetime | None = None) -> str:
     stamp = value or datetime.now().astimezone()
     return stamp.strftime('%Y-%m-%d %H:%M:%S %z')
-
 
 class _PdfBuilder:
     def __init__(self) -> None:
         self._pages: list[list[str]] = []
         self._current: list[str] = []
-        self._images: list[tuple[bytes, int, int]] = []
 
     def start_page(self) -> None:
         if self._current:
@@ -97,13 +84,6 @@ class _PdfBuilder:
         op = 'f' if fill else 'S'
         self.add(f"q {x:.2f} {y:.2f} {width:.2f} {height:.2f} re {op} Q")
 
-    def register_image(self, jpeg_bytes: bytes, w: int, h: int) -> str:
-        self._images.append((jpeg_bytes, w, h))
-        return f"Im{len(self._images)}"
-
-    def image(self, img_name: str, x: float, y: float, w: float, h: float) -> None:
-        self.add(f"q {w:.2f} 0 0 {h:.2f} {x:.2f} {y:.2f} cm /{img_name} Do Q")
-
     def finish(self) -> bytes:
         if self._current:
             self._pages.append(self._current)
@@ -116,18 +96,6 @@ class _PdfBuilder:
             objects.append(payload)
             return len(objects)
 
-        # Add image payloads as PDF objects
-        image_obj_ids = []
-        for img_bytes, w, h in self._images:
-            header = (
-                f"<< /Type /XObject /Subtype /Image /Width {w} /Height {h} "
-                f"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode "
-                f"/Length {len(img_bytes)} >>\nstream\n"
-            ).encode('latin-1')
-            footer = b"\nendstream"
-            payload = header + img_bytes + footer
-            image_obj_ids.append(add_object(payload))
-
         font_regular = add_object('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
         font_bold = add_object('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
 
@@ -139,20 +107,15 @@ class _PdfBuilder:
             content = b'<< /Length ' + str(len(stream)).encode() + b' >>\nstream\n' + stream + b'\nendstream'
             page_content_ids.append(add_object(content))
 
-        xobject_dict = ""
-        if image_obj_ids:
-            xobject_dict = "/XObject << " + " ".join(f"/Im{idx+1} {oid} 0 R" for idx, oid in enumerate(image_obj_ids)) + " >>"
-
         pages_placeholder = add_object('')
         for content_id in page_content_ids:
             page_obj = (
                 f'<< /Type /Page /Parent {pages_placeholder} 0 R '
                 f'/MediaBox [0 0 {PAGE_WIDTH:.2f} {PAGE_HEIGHT:.2f}] '
-                f'/Resources << /Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R >> {xobject_dict} >> '
+                f'/Resources << /Font << /F1 {font_regular} 0 R /F2 {font_bold} 0 R >> >> '
                 f'/Contents {content_id} 0 R >>'
             )
             page_ids.append(add_object(page_obj))
-
         kids = ' '.join(f'{pid} 0 R' for pid in page_ids)
         objects[pages_placeholder - 1] = (
             f'<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>'.encode('latin-1')
@@ -183,7 +146,6 @@ class _PdfBuilder:
         )
         return b''.join(pdf)
 
-
 def _draw_box(builder: _PdfBuilder, x: float, y: float, width: float, height: float,
               fill_rgb: tuple[float, float, float], stroke_rgb: tuple[float, float, float],
               line_width: float = 0.5) -> None:
@@ -193,7 +155,6 @@ def _draw_box(builder: _PdfBuilder, x: float, y: float, width: float, height: fl
         f"q {fr:.3f} {fg:.3f} {fb:.3f} rg {sr:.3f} {sg:.3f} {sb:.3f} RG "
         f"{line_width:.2f} w {x:.2f} {y:.2f} {width:.2f} {height:.2f} re B Q"
     )
-
 
 def _draw_distribution_bar(builder: _PdfBuilder, x: float, y: float, w: float, h: float, allocation: list,
                            ticker_colors: dict[str, tuple[float, float, float]]) -> None:
@@ -206,9 +167,7 @@ def _draw_distribution_bar(builder: _PdfBuilder, x: float, y: float, w: float, h
         seg_w = (weight / 100.0) * w
         if seg_w <= 0:
             continue
-            
         r, g, b = ticker_colors.get(line['ticker'], (0.47, 0.55, 0.65))
-        
         # Fill segment rectangle
         builder.add(f"q {r:.3f} {g:.3f} {b:.3f} rg {curr_x:.2f} {y:.2f} {seg_w:.2f} {h:.2f} re f Q")
         
@@ -223,7 +182,6 @@ def _draw_distribution_bar(builder: _PdfBuilder, x: float, y: float, w: float, h
             
         curr_x += seg_w
 
-
 def _split_into_sentences(text: str) -> list[str]:
     parts = text.split('. ')
     sentences = []
@@ -235,7 +193,6 @@ def _split_into_sentences(text: str) -> list[str]:
             sentences.append(p)
     return sentences
 
-
 ETF_DESCRIPTIONS = {
     "BIL": "Liquidez a muy corto plazo para preservar capital y aportar máxima estabilidad.",
     "AGG": "Bonos de grado de inversión que aportan estabilidad y flujo de renta fija.",
@@ -246,7 +203,6 @@ ETF_DESCRIPTIONS = {
     "VNQ": "Activos inmobiliarios (REITs) para diversificar con renta de bienes raíces.",
     "GLD": "Activo alternativo de oro físico que actúa como refugio e inflación."
 }
-
 
 def _draw_header(builder: _PdfBuilder, generated_at: str, advisor_name: str, page_str: str) -> None:
     # Logotipo: cuadro verde esmeralda (#10B981) de la página
@@ -267,14 +223,11 @@ def _draw_header(builder: _PdfBuilder, generated_at: str, advisor_name: str, pag
 
     # Metadatos del encabezado en color Ink Mid (#475569) a la derecha, en una sola línea bien distribuida
     builder.add('0.28 0.33 0.41 rg')
-    builder.text(280, 783, f'Fecha: {generated_at}', 'F1', 8.5)
-    builder.text(420, 783, f'Asesor: {advisor_name}', 'F1', 8.5)
-    builder.text(PAGE_WIDTH - MARGIN_X - 45, 783, page_str, 'F1', 8.5)
+    builder.text(420, 783, f'Fecha: {generated_at}', 'F1', 8.5)
 
     # Línea divisoria en color Border (#E2E8F0)
     builder.add('0.89 0.91 0.94 RG')
     builder.line(MARGIN_X, 768, PAGE_WIDTH - MARGIN_X, 768, 0.6)
-
 
 def _draw_footer(builder: _PdfBuilder, advisor_name: str, rules_version: str, page_str: str) -> None:
     builder.add("0.89 0.91 0.94 RG")
@@ -283,7 +236,6 @@ def _draw_footer(builder: _PdfBuilder, advisor_name: str, rules_version: str, pa
     builder.text(MARGIN_X, 62, f'Aprobado por Asesor: {advisor_name}', 'F1', 8.5)
     builder.text(260, 62, f'Versión de reglas: Reglas v{rules_version}', 'F1', 8.5)
     builder.text(PAGE_WIDTH - MARGIN_X - 45, 62, page_str, 'F1', 8.5)
-
 
 def _section_title(builder: _PdfBuilder, y: float, num: str, title: str) -> float:
     # Verde para el número
@@ -297,7 +249,6 @@ def _section_title(builder: _PdfBuilder, y: float, num: str, title: str) -> floa
     builder.line(MARGIN_X, y - 4, PAGE_WIDTH - MARGIN_X, y - 4, 0.5)
     return y - 20
 
-
 def _add_wrapped(builder: _PdfBuilder, x: float, y: float, text: str, font: str = 'F1', size: int = 10,
                  width_chars: int = 92, leading: int = 14) -> float:
     builder.add("0.12 0.16 0.22 rg")
@@ -305,7 +256,6 @@ def _add_wrapped(builder: _PdfBuilder, x: float, y: float, text: str, font: str 
         builder.text(x, y, line, font, size)
         y -= leading
     return y
-
 
 def generate_suitability_report_pdf(record: dict[str, Any], generated_at: datetime | None = None) -> bytes:
     decision = record.get('decision') or {}
@@ -317,17 +267,15 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     advisor_name = decision.get('advisor') or 'Pendiente de firma'
     generated_stamp = _format_timestamp(generated_at)
 
-    # Pre-map tickers to colors from TREEMAP_COLORS
+    # Pre-map tickers to colors from TICKER_COLORS
     sorted_alloc = sorted(proposal['allocation'], key=lambda a: a.get('weight', 0), reverse=True)
     ticker_colors = {}
     for idx, line in enumerate(sorted_alloc):
-        ticker_colors[line['ticker']] = TREEMAP_COLORS[idx % len(TREEMAP_COLORS)]
+        ticker_colors[line['ticker']] = TICKER_COLORS[idx % len(TICKER_COLORS)]
 
     builder = _PdfBuilder()
 
-    # ==========================================
     # PÁGINA 1: PORTADA, RESUMEN Y DIAGNÓSTICO
-    # ==========================================
     builder.start_page()
     _draw_header(builder, generated_stamp, advisor_name, "Pág. 1 de 2")
 
@@ -374,10 +322,9 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
 
     y -= 68
 
-    # Resumen Ejecutivo (1.)
+    # Resumen Ejecutivo
     y -= 25
     y = _section_title(builder, y, '1. ', 'Resumen Ejecutivo')
-    
     # Card 1: Perfil
     _draw_box(builder, MARGIN_X, y - 60, 150, 60, fill_rgb=(0.95, 0.96, 0.98), stroke_rgb=(0.89, 0.91, 0.94), line_width=0.5)
     builder.add("0.28 0.33 0.41 rg")
@@ -386,7 +333,6 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     builder.text(MARGIN_X + 12, y - 36, profile_result['profile']['label'], 'F2', 12)
     builder.add("0.28 0.33 0.41 rg")
     builder.text(MARGIN_X + 12, y - 52, f"Score: {profile_result['score']}/100", 'F1', 8)
-
     # Card 2: Diversificación
     _draw_box(builder, MARGIN_X + 175, y - 60, 150, 60, fill_rgb=(0.95, 0.96, 0.98), stroke_rgb=(0.89, 0.91, 0.94), line_width=0.5)
     builder.add("0.28 0.33 0.41 rg")
@@ -395,7 +341,6 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     builder.text(MARGIN_X + 187, y - 36, "Alta", 'F2', 12)
     builder.add("0.28 0.33 0.41 rg")
     builder.text(MARGIN_X + 187, y - 52, f"{proposal['metrics']['diversification']} Clases de Activos", 'F1', 8)
-
     # Card 3: Volatilidad
     _draw_box(builder, MARGIN_X + 350, y - 60, 150, 60, fill_rgb=(0.95, 0.96, 0.98), stroke_rgb=(0.89, 0.91, 0.94), line_width=0.5)
     builder.add("0.28 0.33 0.41 rg")
@@ -404,13 +349,10 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     builder.text(MARGIN_X + 362, y - 36, f"{proposal['metrics']['volatility']}%", 'F2', 12)
     builder.add("0.28 0.33 0.41 rg")
     builder.text(MARGIN_X + 362, y - 52, "No garantizado", 'F1', 8)
-
     y -= 60
-
-    # Diagnóstico del Inversionista (2.)
+    # Diagnóstico del Inversionista
     y -= 25
     y = _section_title(builder, y, '2. ', 'Diagnóstico del Inversionista')
-
     # Info de puntuación
     builder.add("0.06 0.09 0.16 rg")
     builder.text(MARGIN_X, y, f"Score obtenido: {profile_result['score']}/100", 'F2', 9.5)
@@ -418,7 +360,6 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     builder.text(MARGIN_X + 180, y, f"Perfil Preliminar: {profile_result['raw_profile']['label']}", 'F1', 9)
     builder.text(MARGIN_X + 340, y, f"Perfil Asignado: {profile_result['profile']['label']}", 'F2', 9)
     y -= 14
-
     # Escala de perfiles dinámica
     rules = asesor_financiero.load_rules()
     scale_parts = []
@@ -479,9 +420,7 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
 
     _draw_footer(builder, advisor_name, profile_result['rules_version'], "Pág. 1 de 2")
 
-    # ==========================================
     # PÁGINA 2: ASIGNACIÓN, JUSTIFICACIÓN, VALIDACIÓN Y COMPLIANCE
-    # ==========================================
     builder.start_page()
     _draw_header(builder, generated_stamp, advisor_name, "Pág. 2 de 2")
 
@@ -526,16 +465,13 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     # Fila 3: Escala explicativa
     builder.add("0.47 0.55 0.65 rg")
     builder.text(MARGIN_X + 340, y - 31, "Escala: 1=bajo, 5=alto", 'F1', 6.5)
-
     y -= 52
-
     # Gráfico de distribución del portafolio (barra horizontal segmentada)
     builder.add("0.28 0.33 0.41 rg")
     builder.text(MARGIN_X, y, "Distribución Visual del Portafolio:", 'F2', 8.5)
     y -= 14
     _draw_distribution_bar(builder, MARGIN_X, y - 16, PAGE_WIDTH - 2*MARGIN_X, 16, proposal['allocation'], ticker_colors)
     y -= 34
-
     # Cabecera de la tabla
     _draw_box(builder, MARGIN_X, y - 14, PAGE_WIDTH - 2*MARGIN_X, 14,
               fill_rgb=(0.06, 0.09, 0.16), stroke_rgb=(0.06, 0.09, 0.16), line_width=0.5)
@@ -546,7 +482,7 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     builder.text(MARGIN_X + 440, y - 10, 'Peso', 'F2', 8)
     y -= 14
 
-    # Filas de la tabla (ordenadas por peso descendente para perfecta consistencia con el Treemap)
+    # Filas de la tabla
     for line in sorted_alloc:
         r, g, b = ticker_colors.get(line['ticker'], (0.47, 0.55, 0.65))
         
@@ -575,7 +511,7 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
 
     y -= 20
 
-    # Explicación de la recomendación (Justificación) (4.)
+    # Explicación de la recomendación
     y = _section_title(builder, y, '4. ', 'Justificación del Portafolio')
     
     # Construcción dinámica del párrafo de conexión
@@ -614,7 +550,6 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
     explanation_text = proposal['explanation']
     if connection_text and connection_text not in explanation_text:
         explanation_text = connection_text + " " + explanation_text
-
     sentences = _split_into_sentences(explanation_text)
     for sent in sentences:
         # Dibujar viñeta
@@ -624,44 +559,38 @@ def generate_suitability_report_pdf(record: dict[str, Any], generated_at: dateti
         y = _add_wrapped(builder, MARGIN_X + 12, y, sent, size=8.2, width_chars=95, leading=10)
         y -= 3
 
-    # Firma y Validación (5.)
+    # Firma y Validación
     y -= 20
     y = _section_title(builder, y, '5. ', 'Validación del Asesor')
 
     # Tarjeta de firma (Fondo #F8FAFC, Borde #E2E8F0)
     _draw_box(builder, MARGIN_X, y - 56, PAGE_WIDTH - 2*MARGIN_X, 56,
               fill_rgb=(0.97, 0.98, 0.99), stroke_rgb=(0.89, 0.91, 0.94), line_width=0.6)
-
     # Datos
     builder.add("0.28 0.33 0.41 rg")
     builder.text(MARGIN_X + 12, y - 16, "Asesor que validó la gestión:", 'F2', 8.5)
     builder.text(MARGIN_X + 12, y - 30, "Fecha de validación:", 'F2', 8.5)
     builder.text(MARGIN_X + 12, y - 44, "Firma del Asesor:", 'F2', 8.5)
-
     builder.add("0.06 0.09 0.16 rg")
     builder.text(MARGIN_X + 155, y - 16, advisor_name, 'F1', 8.5)
     builder.text(MARGIN_X + 155, y - 30, generated_stamp, 'F1', 8.5)
     builder.add("0.47 0.55 0.65 RG")
     builder.line(MARGIN_X + 155, y - 46, MARGIN_X + 260, y - 46, 0.4)
 
-    # Sello de aprobación digital (Stamp)
+    # Sello de aprobación digital
     _draw_box(builder, MARGIN_X + 290, y - 48, 170, 40,
               fill_rgb=(0.93, 0.99, 0.96), stroke_rgb=(0.06, 0.73, 0.51), line_width=1.2)
     builder.add("0.06 0.73 0.51 rg")
     builder.text(MARGIN_X + 310, y - 26, "APROBADO HITL", 'F2', 10.5)
     builder.text(MARGIN_X + 315, y - 40, "Human-In-The-Loop", 'F1', 7.5)
 
-    # Compliance & Legal (6.)
+    # Compliance & Legal
     y -= 76
     y = _section_title(builder, y, '6. ', 'Cumplimiento y Disclaimer Legal')
-
     audit_text = f"Auditoría: ID Reporte {record.get('id') or 'N/A'} | Versión Reglas profile_rules_v{profile_result['rules_version']} | Emisión UTC: {generated_stamp} por Asesor {advisor_name}"
     y = _add_wrapped(builder, MARGIN_X, y, audit_text, font='F2', size=7.5, width_chars=110, leading=10)
     y -= 4
-
     y = _add_wrapped(builder, MARGIN_X, y, DISCLAIMER_TEXT, size=7.5, width_chars=110, leading=9)
     y = _add_wrapped(builder, MARGIN_X, y, DISCLAIMER_NOTE, size=7.5, width_chars=110, leading=9)
-
     _draw_footer(builder, advisor_name, profile_result['rules_version'], "Pág. 2 de 2")
-
     return builder.finish()
