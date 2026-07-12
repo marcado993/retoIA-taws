@@ -67,6 +67,16 @@ def create_proposal(client_name: str, profile_result: dict, proposal: dict) -> d
         add_audit("propuesta_generada", "agente:inversiones-ia", pid,
                   profile_result["rules_version"],
                   f"Perfil {profile_result['profile']['label']} (score {profile_result['score']}) para {client_name}")
+        # G6 (mitigación de alucinaciones): cada rechazo del verificador queda como
+        # evento auditable con la razón y el fragmento de texto descartado.
+        for ev in proposal.get("guardrail_events", []):
+            add_audit(
+                "antialucinacion_rechazo",
+                f"verificador:{ev.get('agent', 'anti-alucinacion')}",
+                pid,
+                profile_result["rules_version"],
+                f"Salida del LLM descartada — {ev.get('reason', '')}. Fragmento: «{ev.get('snippet', '')}»",
+            )
         _persist()
         return record
 

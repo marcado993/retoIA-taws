@@ -18,7 +18,8 @@ export default function AuditTable({ entries }) {
             {entries.map(e => (
               <tr key={e.id}>
                 <td>{new Date(e.timestamp).toLocaleString()}</td>
-                <td><Chip tone={e.action.includes('rechazada') ? 'red'
+                <td><Chip tone={e.action.includes('antialucinacion') ? 'yellow'
+                  : e.action.includes('rechazada') ? 'red'
                   : e.action.includes('aprobada') ? 'green' : 'lime'}>{e.action.replaceAll('_', ' ')}</Chip></td>
                 <td>{e.actor}</td>
                 <td>#{e.proposal_id}</td>

@@ -7,11 +7,17 @@ funciona de extremo a extremo sin conexión (condición del hackathon).
 """
 
 import json
+import os
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 TTL_SECONDS = 300
+# Presupuesto TOTAL para traer todas las cotizaciones. Como Yahoo puede ser lento,
+# se consultan en paralelo y lo que no llegue a tiempo se resuelve por snapshot,
+# de modo que el endpoint nunca cuelga (era la causa del 500 en Análisis IA).
+FETCH_BUDGET_SECONDS = 5.0
 
 # Snapshot diferido (fallback sin red). Precios aproximados, etiquetados como tal.
 # `history` es una serie ilustrativa (no real) SOLO para este fallback offline;
@@ -30,12 +36,19 @@ SNAPSHOT = {
 _cache: dict = {"ts": 0.0, "payload": None}
 
 
+def get_cached_payload() -> dict | None:
+    """Devuelve el último payload cacheado SIN disparar red. Pensado para rutas que
+    no deben bloquearse esperando a Yahoo (p. ej. crear la propuesta): si aún no hay
+    caché, retorna None y quien llama degrada con gracia."""
+    return _cache.get("payload")
+
+
 def _fetch_yahoo(ticker: str) -> dict:
     # range=1mo trae cierres diarios reales del último mes — sirve para el precio
     # actual Y para graficar la tendencia real de cada instrumento (sin fabricar datos).
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range=1mo&interval=1d"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=4) as resp:
+    with urllib.request.urlopen(req, timeout=3) as resp:
         data = json.load(resp)
     result = data["chart"]["result"][0]
     meta = result["meta"]
@@ -61,13 +74,25 @@ def get_quotes_payload(tickers: list[str]) -> dict:
     if _cache["payload"] and now - _cache["ts"] < TTL_SECONDS:
         return _cache["payload"]
 
+    # Modo offline (p. ej. e2e o demo sin conexión): usar el snapshot sin tocar la red,
+    # evitando esperas largas cuando Yahoo no es alcanzable.
+    offline = bool(os.environ.get("ROBO_OFFLINE"))
+
     quotes = {}
     live = 0
+    network_down = offline
     for t in tickers:
+        if network_down:
+            snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
+            quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
+            continue
         try:
             quotes[t] = _fetch_yahoo(t)
             live += 1
         except Exception:
+            # Primer fallo de red → asumimos sin conexión y resolvemos el resto por
+            # snapshot, para no colgar el endpoint esperando 8 timeouts seguidos.
+            network_down = True
             snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
             quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
 

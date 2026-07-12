@@ -24,7 +24,9 @@ export default defineConfig({
       url: 'http://localhost:8001/api/health',
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { ...process.env, ROBO_DB_PATH: E2E_DB },
+      // Deterministas y offline: sin llamar a Gemini (claves vacías) ni a Yahoo/RSS
+      // (ROBO_OFFLINE usa snapshot/mock). `load_dotenv(override=False)` respeta estas.
+      env: { ...process.env, ROBO_DB_PATH: E2E_DB, GEMINI_API_KEY: '', GOOGLE_API_KEY: '', ROBO_OFFLINE: '1' },
     },
     {
       command: 'npm run dev',

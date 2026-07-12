@@ -404,9 +404,10 @@ class TestGemini:
                    "score": 50, "rules_version": "1.0.0"}
         metrics = {"expected_return": 7.2, "volatility": 12.5, "risk_level": 3.0, "diversification": 4}
         alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
-        text, source = inversiones_ia._explain(profile, alloc, metrics)
+        text, source, events = inversiones_ia._explain(profile, alloc, metrics)
         assert text == texto
         assert source.startswith("gemini"), f"source esperado gemini*, obtenido {source}"
+        assert events == [], "Una salida válida no genera eventos de guardrail"
 
     def test_explain_cae_a_plantilla_si_gemini_alucina(self, monkeypatch):
         # Gemini devuelve una promesa de rentabilidad → el verificador la rechaza
@@ -417,7 +418,7 @@ class TestGemini:
                    "score": 80, "rules_version": "1.0.0"}
         metrics = {"expected_return": 9.0, "volatility": 16.0, "risk_level": 4.0, "diversification": 5}
         alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
-        text, source = inversiones_ia._explain(profile, alloc, metrics)
+        text, source, events = inversiones_ia._explain(profile, alloc, metrics)
         assert source == "plantilla-determinista"
 
     def test_build_proposal_incluye_market_context_con_gemini(self, monkeypatch):
@@ -435,3 +436,111 @@ class TestGemini:
         prop = inversiones_ia.build_proposal(profile, market=market, news=news)
         assert prop["market_context"] is not None
         assert prop["market_context"]["source"].startswith("gemini")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C8: Casos de borde de la API de Gemini (robustez del cliente) [P3]
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestGeminiCasosBorde:
+    """Respuestas raras de la API no deben romper la demo: siempre caen a None y de
+    ahí a la plantilla determinística."""
+
+    def test_respuesta_sin_candidates_devuelve_none(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setattr("urllib.request.urlopen",
+                            lambda *a, **k: _FakeGeminiResp({}))
+        assert inversiones_ia._call_gemini("prompt") is None
+
+    def test_respuesta_bloqueada_por_seguridad_devuelve_none(self, monkeypatch):
+        # Gemini puede devolver un candidate sin `content` (finishReason SAFETY).
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        payload = {"candidates": [{"finishReason": "SAFETY"}]}
+        monkeypatch.setattr("urllib.request.urlopen",
+                            lambda *a, **k: _FakeGeminiResp(payload))
+        assert inversiones_ia._call_gemini("prompt") is None
+
+    def test_json_invalido_devuelve_none(self, monkeypatch):
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+        class _BadResp:
+            def read(self, *a, **k):
+                return b"esto no es json"
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+
+        monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: _BadResp())
+        assert inversiones_ia._call_gemini("prompt") is None
+
+    def test_texto_vacio_de_gemini_cae_a_plantilla(self, monkeypatch):
+        # Un texto vacío del LLM se trata como ausencia de narrativa → plantilla.
+        monkeypatch.setattr(inversiones_ia, "_call_gemini", lambda *a, **k: "")
+        profile = {"profile": {"id": "moderado", "label": "Moderado", "description": "x"},
+                   "score": 50, "rules_version": "1.0.0"}
+        metrics = {"expected_return": 7.2, "volatility": 12.5, "risk_level": 3.0, "diversification": 4}
+        alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
+        _, source, events = inversiones_ia._explain(profile, alloc, metrics)
+        assert source == "plantilla-determinista"
+        assert events == []  # texto vacío no es una "alucinación": no genera evento
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C9: Evidencia de mitigación de alucinaciones en auditoría/logs (Gap G6) [P4]
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestAuditoriaAntialucinacion:
+    """El rechazo del verificador debe quedar como evidencia tangible: como evento
+    en la propuesta y como entrada persistida en el log de auditoría."""
+
+    def test_explain_registra_evento_al_alucinar(self, monkeypatch):
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "Retorno garantizado del 40% asegurado.")
+        profile = {"profile": {"id": "agresivo", "label": "Agresivo", "description": "x"},
+                   "score": 80, "rules_version": "1.0.0"}
+        metrics = {"expected_return": 9.0, "volatility": 16.0, "risk_level": 4.0, "diversification": 5}
+        alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
+        _, source, events = inversiones_ia._explain(profile, alloc, metrics)
+        assert source == "plantilla-determinista"
+        assert len(events) == 1
+        assert events[0]["agent"] == "inversiones-ia:explicacion"
+        assert events[0]["reason"]      # motivo del rechazo presente
+        assert events[0]["snippet"]     # fragmento del texto descartado presente
+
+    def test_market_context_rechaza_ticker_inventado(self, monkeypatch):
+        # Gemini menciona un ticker fuera del catálogo aprobado → se descarta.
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "El mercado favorece a NVDA hoy, que sube con fuerza.")
+        profile = asesor_financiero.evaluate_profile({
+            "reaccion": "mantener", "objetivo": "balanceado", "horizonte": "medio",
+            "emergencia": "tres_meses", "experiencia": "intermedia", "ingresos": "estables",
+        })
+        market = {"provider": "Test", "live": False, "quotes": {"SPY": {"change_pct": 1.2}}}
+        news = [{"title": "Rally tecnológico en el Nasdaq", "sentiment": "positivo"}]
+        prop = inversiones_ia.build_proposal(profile, market=market, news=news)
+        assert prop["market_context"]["source"] == "plantilla-determinista"
+        assert any(ev["agent"] == "inversiones-ia:contexto-mercado"
+                   for ev in prop["guardrail_events"])
+
+    def test_create_proposal_persiste_evento_en_auditoria(self, monkeypatch, tmp_path):
+        from app import store
+        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+                            lambda *a, **k: "Rentabilidad garantizada del 30% asegurada.")
+        monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
+        monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
+
+        profile = asesor_financiero.evaluate_profile({
+            "reaccion": "mantener", "objetivo": "balanceado", "horizonte": "medio",
+            "emergencia": "tres_meses", "experiencia": "intermedia", "ingresos": "estables",
+        })
+        market = {"provider": "Test", "live": False, "quotes": {"SPY": {"change_pct": 1.0}}}
+        news = [{"title": "Rally tecnológico impulsa el Nasdaq", "sentiment": "positivo"}]
+        proposal = inversiones_ia.build_proposal(profile, market=market, news=news)
+        assert proposal["guardrail_events"], "Debe haber al menos un rechazo registrado"
+
+        store.create_proposal("Cliente Evidencia", profile, proposal)
+        audit = store.audit_log()
+        rechazos = [a for a in audit if a["action"] == "antialucinacion_rechazo"]
+        assert rechazos, "El rechazo debe quedar persistido en el log de auditoría"
+        assert "descartada" in rechazos[0]["detail"].lower()

@@ -11,12 +11,35 @@ El agente NO ejecuta órdenes ni promete rentabilidad.
 """
 
 import json
+import logging
 import os
 import re
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 CATALOG_PATH = Path(__file__).resolve().parent.parent / "data" / "catalog.json"
+
+# Logger dedicado a la mitigación de alucinaciones: cada rechazo del verificador
+# queda como evidencia tangible en los logs del servidor (además de en auditoría).
+logger = logging.getLogger("invertia.antialucinacion")
+
+
+def _guardrail_event(agent: str, reason: str, text: str) -> dict:
+    """Registro estructurado de un rechazo del verificador anti-alucinación."""
+    return {
+        "agent": agent,
+        "reason": reason,
+        "snippet": (text or "").strip()[:200],
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _log_guardrail(ev: dict) -> None:
+    logger.warning(
+        "[ANTI-HALLUCINATION] %s rechazó salida del LLM: %s | fragmento=%r",
+        ev["agent"], ev["reason"], ev["snippet"],
+    )
 
 DISCLAIMER = (
     "Esta es una propuesta para revisión de un asesor autorizado. No constituye "
@@ -97,8 +120,9 @@ def build_proposal(
         "diversification": len(allocation),
     }
     goal_fit = _compute_goal_fit(goal, metrics)
-    explanation, explanation_source = _explain(profile_result, allocation, metrics)
-    market_context = _build_market_context(profile_result, allocation, metrics, market, news)
+    explanation, explanation_source, exp_events = _explain(profile_result, allocation, metrics)
+    market_context, mc_events = _build_market_context(
+        profile_result, allocation, metrics, market, news)
 
     return {
         "catalog_version": catalog["version"],
@@ -109,6 +133,8 @@ def build_proposal(
         "explanation": explanation,
         "explanation_source": explanation_source,
         "market_context": market_context,
+        # Evidencia de mitigación de alucinaciones: rechazos del verificador (si los hubo).
+        "guardrail_events": exp_events + mc_events,
         "disclaimer": DISCLAIMER,
     }
 
@@ -150,19 +176,22 @@ def _compute_goal_fit(goal: dict | None, metrics: dict) -> dict | None:
     }
 
 
-def _explain(profile_result: dict, allocation: list, metrics: dict) -> tuple[str, str]:
-    """Devuelve (texto, fuente) — la fuente se muestra al usuario para que sepa
-    exactamente qué generó la explicación: transparencia real, no solo un
-    disclaimer genérico."""
+def _explain(profile_result: dict, allocation: list, metrics: dict) -> tuple[str, str, list]:
+    """Devuelve (texto, fuente, eventos) — la fuente se muestra al usuario para que
+    sepa exactamente qué generó la explicación, y `eventos` lista los rechazos del
+    verificador anti-alucinación (evidencia de mitigación de riesgos)."""
+    events: list = []
     llm_text = _try_llm_explanation(profile_result, allocation, metrics)
     if llm_text:
         # CA-3g: Capa de verificación anti-alucinación
         is_valid, reason = _verify_llm_output(llm_text, metrics)
         if is_valid:
-            return llm_text, _gemini_model()
-        # LLM alucinado → log + fallback determinístico
-        print(f"[ANTI-HALLUCINATION] LLM output rechazado: {reason}. Usando plantilla.")
-    return _template_explanation(profile_result, allocation, metrics), "plantilla-determinista"
+            return llm_text, _gemini_model(), events
+        # LLM alucinado → registra evidencia + fallback determinístico
+        ev = _guardrail_event("inversiones-ia:explicacion", reason, llm_text)
+        _log_guardrail(ev)
+        events.append(ev)
+    return _template_explanation(profile_result, allocation, metrics), "plantilla-determinista", events
 
 
 def _verify_llm_output(text: str, metrics: dict, extra_allowed: list | None = None) -> tuple[bool, str]:
@@ -257,30 +286,34 @@ def _compute_market_signals(allocation: list, market: dict | None, news: list | 
 
 
 def _build_market_context(profile_result: dict, allocation: list, metrics: dict,
-                          market: dict | None, news: list | None) -> dict | None:
-    """Construye el contexto de mercado de la propuesta. Devuelve None si no hay
-    ninguna señal (sin mercado ni noticias) — p. ej. en tests unitarios."""
+                          market: dict | None, news: list | None) -> tuple[dict | None, list]:
+    """Construye el contexto de mercado de la propuesta. Devuelve (contexto, eventos).
+    El contexto es None si no hay ninguna señal (sin mercado ni noticias)."""
     signals = _compute_market_signals(allocation, market, news)
     if not signals["growing"] and not signals["active_themes"]:
-        return None
+        return None, []
 
-    narrative, source = _market_narrative(profile_result, allocation, metrics, signals)
-    return {"signals": signals, "narrative": narrative, "source": source}
+    narrative, source, events = _market_narrative(profile_result, allocation, metrics, signals)
+    return {"signals": signals, "narrative": narrative, "source": source}, events
 
 
 def _market_narrative(profile_result: dict, allocation: list, metrics: dict,
-                      signals: dict) -> tuple[str, str]:
-    """Narrativa IA (Anthropic) con verificación anti-alucinación y fallback
+                      signals: dict) -> tuple[str, str, list]:
+    """Narrativa IA (Gemini) con verificación anti-alucinación y fallback
     determinístico. El LLM solo narra la alineación; nunca cambia pesos, inventa
-    tickers fuera del catálogo ni promete rentabilidad."""
+    tickers fuera del catálogo ni promete rentabilidad. Devuelve (texto, fuente, eventos)."""
+    events: list = []
     llm_text = _try_llm_market_context(profile_result, allocation, metrics, signals)
     if llm_text:
         extra = [g["change_pct"] for g in signals["growing"]]
         ok, reason = _verify_llm_output(llm_text, metrics, extra_allowed=extra)
         if ok and _tickers_within_catalog(llm_text):
-            return llm_text, _gemini_model()
-        print(f"[ANTI-HALLUCINATION] Contexto de mercado rechazado: {reason or 'ticker fuera de catálogo'}. Usando plantilla.")
-    return _template_market_context(profile_result, allocation, signals), "plantilla-determinista"
+            return llm_text, _gemini_model(), events
+        final_reason = reason or "ticker fuera del catálogo aprobado"
+        ev = _guardrail_event("inversiones-ia:contexto-mercado", final_reason, llm_text)
+        _log_guardrail(ev)
+        events.append(ev)
+    return _template_market_context(profile_result, allocation, signals), "plantilla-determinista", events
 
 
 def _tickers_within_catalog(text: str) -> bool:

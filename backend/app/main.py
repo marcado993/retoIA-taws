@@ -4,9 +4,21 @@ Orquesta los dos agentes (Asesor Financiero IA e Inversiones IA) y expone
 el flujo humano-en-el-bucle: perfil -> propuesta -> revisión del asesor.
 """
 
+import logging
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+# Carga backend/.env (GEMINI_API_KEY, etc.) hacia os.environ. `override=False`
+# respeta variables ya definidas por el entorno (p. ej. los e2e las fijan vacías
+# para no llamar a la API real). Opcional: si no está python-dotenv, se ignora.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+except Exception:
+    pass
 
 from app import market_data, news_scraper, store
 from app.agents import asesor_financiero, inversiones_ia
@@ -66,9 +78,14 @@ def catalog():
 
 @app.get("/api/market")
 def market():
-    """Cotizaciones del catálogo: Yahoo Finance en vivo con fallback diferido."""
-    cat = inversiones_ia.load_catalog()
-    return market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
+    """Cotizaciones del catálogo: Yahoo Finance en vivo con fallback diferido.
+    Nunca falla: ante cualquier error usa lo cacheado o un payload vacío."""
+    try:
+        cat = inversiones_ia.load_catalog()
+        return market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
+    except Exception:
+        logging.getLogger("invertia").exception("Fallo en /api/market")
+        return market_data.get_cached_payload() or {"provider": "n/d", "live": False, "quotes": {}}
 
 
 @app.post("/api/proposals")
@@ -80,17 +97,12 @@ def create_proposal(req: ProfileRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     goal = req.goal.model_dump() if req.goal else None
-    # Contexto de mercado + noticias para que la IA alinee la propuesta con las
-    # condiciones actuales (ambos con caché y fallback; nunca rompen el flujo).
-    try:
-        cat = inversiones_ia.load_catalog()
-        market = market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
-    except Exception:
-        market = None
-    try:
-        news = news_scraper.get_news()
-    except Exception:
-        news = None
+    # Contexto de mercado + noticias para alinear la propuesta. Se usa SOLO lo que ya
+    # está en caché (no bloquea con red externa): los endpoints /api/market y /api/news
+    # —que el frontend consulta al cargar— mantienen la caché caliente. Si está fría,
+    # market/news son None y el market_context degrada con gracia (queda None).
+    market = market_data.get_cached_payload()
+    news = news_scraper.get_cached_news()
     proposal = inversiones_ia.build_proposal(profile_result, goal=goal, market=market, news=news)
     return store.create_proposal(req.client_name, profile_result, proposal)
 
@@ -154,15 +166,34 @@ def audit():
 def news():
     """Scrapper de noticias financieras (RSS en vivo + mock offline).
     Devuelve hasta 10 titulares con sentimiento (positivo/negativo/neutro)."""
-    return {"items": news_scraper.get_news()}
+    try:
+        return {"items": news_scraper.get_news()}
+    except Exception:
+        logging.getLogger("invertia").exception("Fallo en /api/news")
+        return {"items": news_scraper.get_cached_news() or []}
 
 
 @app.get("/api/ai-insight")
 def ai_insight(profile: str | None = None):
     """Análisis IA combinado: noticias + cotizaciones + perfil del cliente.
-    Genera alertas contextuales y sugerencias de ajuste de portafolio."""
-    noticias = news_scraper.get_news()
-    cat = inversiones_ia.load_catalog()
-    market = market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
-    insight = news_scraper.build_ai_insight(profile, noticias, market.get("quotes", {}))
-    return insight
+    Genera alertas contextuales y sugerencias de ajuste de portafolio.
+
+    Resiliente: nunca responde 500. Si el scraping o el mercado fallan, usa lo
+    cacheado (o mock/snapshot) para que la pestaña Análisis IA siempre cargue."""
+    try:
+        noticias = news_scraper.get_news()
+    except Exception:
+        noticias = news_scraper.get_cached_news() or []
+    try:
+        cat = inversiones_ia.load_catalog()
+        market = market_data.get_quotes_payload([i["ticker"] for i in cat["instruments"]])
+        quotes = market.get("quotes", {})
+    except Exception:
+        cached = market_data.get_cached_payload()
+        quotes = cached.get("quotes", {}) if cached else {}
+    try:
+        return news_scraper.build_ai_insight(profile, noticias, quotes)
+    except Exception:
+        logging.getLogger("invertia").exception("Fallo construyendo el insight de IA")
+        # Último recurso: insight mínimo válido (sin alertas) para no romper la UI.
+        return news_scraper.build_ai_insight(profile, [], {})

@@ -6,6 +6,7 @@ Cada noticia lleva sentimiento (positivo / negativo / neutro) y categoría.
 """
 
 import json
+import os
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -84,9 +85,21 @@ def _mock_news() -> list[dict]:
 _cache: dict = {"ts": 0.0, "news": None}
 
 
+def get_cached_news() -> list[dict] | None:
+    """Devuelve las últimas noticias cacheadas SIN disparar red — para rutas que no
+    deben bloquearse (p. ej. crear la propuesta). None si aún no hay caché."""
+    return _cache.get("news")
+
+
 def get_news() -> list[dict]:
     now = time.time()
     if _cache["news"] and now - _cache["ts"] < TTL_SECONDS:
+        return _cache["news"]
+
+    # Modo offline (e2e / demo sin conexión): noticias mock sin tocar la red.
+    if os.environ.get("ROBO_OFFLINE"):
+        _cache["ts"] = now
+        _cache["news"] = _mock_news()[:10]
         return _cache["news"]
 
     news: list[dict] = []
@@ -95,11 +108,13 @@ def get_news() -> list[dict]:
             break
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=5) as r:
+            with urllib.request.urlopen(req, timeout=3) as r:
                 data = r.read()
             news.extend(_parse_rss(data, source))
         except Exception:
-            pass
+            # Feed caído o sin red: dejamos de intentar (evita encadenar timeouts).
+            # Conservamos lo ya obtenido; si no hay nada, caemos a mock más abajo.
+            break
 
     if not news:
         news = _mock_news()
@@ -273,18 +288,20 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
 
         if rejections:
             latest_rej = rejections[0]
+            dec_rej = latest_rej.get("decision") or {}
             past_memories.append({
                 "type": "error_evitado",
                 "client": latest_rej.get("client_name"),
-                "reason": latest_rej.get("decision", {}).get("notes", "No especificado"),
-                "message": f"Evitar repetir error: Propuesta de {latest_rej.get('client_name')} rechazada debido a: '{latest_rej.get('decision', {}).get('notes')}'."
+                "reason": dec_rej.get("notes", "No especificado"),
+                "message": f"Evitar repetir error: Propuesta de {latest_rej.get('client_name')} rechazada debido a: '{dec_rej.get('notes')}'."
             })
         if edits:
             latest_edit = edits[0]
+            dec_edit = latest_edit.get("decision") or {}
             past_memories.append({
                 "type": "ajuste_frecuente",
                 "client": latest_edit.get("client_name"),
-                "message": f"Preferencia de Asesor: Ajuste manual realizado en la propuesta de {latest_edit.get('client_name')} ({latest_edit.get('decision', {}).get('notes')})."
+                "message": f"Preferencia de Asesor: Ajuste manual realizado en la propuesta de {latest_edit.get('client_name')} ({dec_edit.get('notes')})."
             })
     except Exception as e:
         # Si falla por inicialización, continuar
