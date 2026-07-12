@@ -3,6 +3,7 @@ const nextConfig = {
   // Proxy /api → backend FastAPI en desarrollo. Puerto configurable (BACKEND_PORT)
   // para que los e2e puedan apuntar al backend aislado en 8001 sin tocar la demo en 8000.
   async rewrites() {
+    if (process.env.NODE_ENV === 'production') return []
     const backendPort = process.env.BACKEND_PORT || 8000
     return [
       {
