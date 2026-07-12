@@ -100,9 +100,9 @@ export default function AiInsightPanel({ insight, news, onRefresh, loading, reco
                 <p className="ai-summary" role="status">{insight.summary}</p>
                 {/* Trazabilidad: mismo patrón que MarketContextCard y "Modelo de IA" del
                     reporte — quién redactó el texto, siempre visible junto al resultado. */}
-                <Chip tone={insight.summary_source?.startsWith('gemini') ? 'green' : 'neutral'}
+                <Chip tone={insight.summary_source?.startsWith('deepseek') ? 'green' : 'neutral'}
                   className="ai-summary-badge" data-testid="ai-summary-source">
-                  {insight.summary_source?.startsWith('gemini') ? '✨ IA · Gemini' : 'Análisis determinístico'}
+                  {insight.summary_source?.startsWith('deepseek') ? '✨ IA · DeepSeek' : 'Análisis determinístico'}
                 </Chip>
               </div>
 
@@ -321,8 +321,8 @@ function AnalysisReport({ record, insight, market }) {
           <li><strong>Inversiones IA</strong> — construye la asignación desde el catálogo aprobado
             (determinístico) y redacta la explicación con{' '}
             <span className="ai-model-badge">
-              {proposal.explanation_source && proposal.explanation_source.startsWith('gemini')
-                ? `Google Gemini (${proposal.explanation_source})`
+              {proposal.explanation_source && proposal.explanation_source.startsWith('deepseek')
+                ? `DeepSeek (${proposal.explanation_source})`
                 : 'plantilla determinística (sin LLM)'}
             </span>.</li>
           <li><strong>Análisis de mercado</strong> — noticias de RSS financiero real (con

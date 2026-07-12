@@ -307,7 +307,7 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
         # Si falla por inicialización, continuar
         pass
 
-    # Resumen general (plantilla determinística — fallback si Gemini no está
+    # Resumen general (plantilla determinística — fallback si DeepSeek no está
     # disponible o el verificador anti-alucinación rechaza su salida).
     if not alerts:
         if pos_pct >= 0.5:
@@ -319,7 +319,7 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
     else:
         summary = "Hay señales moderadas de riesgo u oportunidad. Lee las alertas y evalúa con tu asesor."
 
-    # Capa narrativa con Google Gemini: redacta el resumen en prosa a partir de
+    # Capa narrativa con DeepSeek: redacta el resumen en prosa a partir de
     # las señales YA calculadas arriba (mood, temas, cotizaciones) — nunca
     # decide alertas ni ajustes, esos siguen siendo 100% determinísticos.
     # Import perezoso: evita un ciclo de import a nivel de módulo con

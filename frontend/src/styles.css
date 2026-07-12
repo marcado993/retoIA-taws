@@ -1462,6 +1462,20 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
 }
 .market-context-foot { font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
+/* Memoria del agente: cifras leídas del historial guardado, nunca del LLM
+   (§3 antialucinación) — acento distinto (violeta) al del contexto de
+   mercado narrado por IA, para que se lea como "dato", no "opinión". */
+.client-memory {
+  margin: 16px 0; padding: 16px 18px;
+  background: linear-gradient(180deg, #F5F3FF 0%, #fff 60%);
+  border: 1px solid rgba(124,58,237,0.2); border-left: 4px solid #7C3AED;
+  border-radius: var(--radius-card);
+}
+.client-memory-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.client-memory-title { font-size: 13px; font-weight: 800; color: #6D28D9; letter-spacing: -0.2px; }
+.client-memory-text { font-size: 13.5px; line-height: 1.6; color: var(--ink-mid); }
+.client-memory-foot { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
 /* ════════════════════════════════════════════════════════════════════════
    RESPONSIVIDAD — Mobile & Tablet
    ════════════════════════════════════════════════════════════════════════ */

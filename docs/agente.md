@@ -39,7 +39,7 @@ flowchart TB
     end
 
     subgraph LLM["Capa Narrativa"]
-        GEMINI["☁️ Google Gemini API"]
+        GEMINI["☁️ DeepSeek API"]
         FALLBACK["📄 Plantilla Determinística"]
     end
 
@@ -79,10 +79,10 @@ InvertIA utiliza una arquitectura **"Deterministic Core + Narrative Layer"**.
 - Calcula un score (0-100) y aplica reglas restrictivas (*Knockouts*), como limitar el riesgo si el cliente tiene un horizonte de inversión muy corto.
 - Asegura reproducibilidad matemática completa.
 
-### 3.2 Inversiones IA (Capa Narrativa - *Best Use of Google Gemini*)
-- Conecta con **Google Gemini** para traducir los datos duros (retornos, volatilidad, asignación de activos) en una narrativa clara y explicable para el cliente.
-- **Protección Anti-Alucinación:** Gemini **solo redacta, no calcula**. Las métricas son calculadas por el backend y enviadas en el prompt. Luego de recibir la respuesta de Gemini, un verificador comprueba mediante expresiones regulares que la IA no haya inventado porcentajes, tickers de instrumentos, ni prometido retornos futuros.
-- Si Gemini alucina o la API está caída, el sistema hace un *fallback* a plantillas determinísticas para garantizar la disponibilidad del servicio.
+### 3.2 Inversiones IA (Capa Narrativa - *Best Use of DeepSeek*)
+- Conecta con **DeepSeek** para traducir los datos duros (retornos, volatilidad, asignación de activos) en una narrativa clara y explicable para el cliente.
+- **Protección Anti-Alucinación:** DeepSeek **solo redacta, no calcula**. Las métricas son calculadas por el backend y enviadas en el prompt. Luego de recibir la respuesta de DeepSeek, un verificador comprueba mediante expresiones regulares que la IA no haya inventado porcentajes, tickers de instrumentos, ni prometido retornos futuros.
+- Si DeepSeek alucina o la API está caída, el sistema hace un *fallback* a plantillas determinísticas para garantizar la disponibilidad del servicio.
 
 ---
 
@@ -108,7 +108,7 @@ Se ha ejecutado una auditoría técnica completa sobre la confiabilidad del Agen
 **Detalle de la validación técnica:**
 1. `TestScoringDeterministico`: Verifica que los puntajes se calculan correctamente y bajo reglas versionadas.
 2. `TestAntiAlucinacion`: Valida que el agente bloquee respuestas inventadas, vacías o que prometan rentabilidad (mitigación de riesgos).
-3. `TestGemini` y `TestGeminiCasosBorde`: Verifica la conexión con Google Gemini, simulando timeouts, bloqueos y respuestas correctas.
+3. `TestDeepSeek` y `TestDeepSeekCasosBorde`: Verifica la conexión con DeepSeek, simulando timeouts, bloqueos y respuestas correctas.
 4. `TestHITLGate`: Confirma que toda propuesta generada queda en estado "pendiente", impidiendo su envío hasta que el asesor la apruebe.
 5. `TestDiversificacion`: Prueba las reglas de distribución de activos garantizando que ningún instrumento concentre más del 50%.
 

@@ -147,7 +147,7 @@ export default function RulesCards({ questionnaire }) {
             </p>
             <div className="rules-knockouts-list">
               {questionnaire.knockouts.map(k => (
-                <div key={k.id} className="rules-knockout-card">
+                <div key={k.id} className="rules-knockout-card" data-testid="knockout-note">
                   <div className="rules-knockout-icon">⚠️</div>
                   <div className="rules-knockout-body">
                     <strong>{k.condition}</strong>

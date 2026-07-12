@@ -5,6 +5,7 @@ import DecisionNote from '../molecules/DecisionNote.jsx'
 import AgentBubble from '../molecules/AgentBubble.jsx'
 import InstrumentLogo from '../molecules/InstrumentLogo.jsx'
 import MarketContextCard from '../molecules/MarketContextCard.jsx'
+import ClientMemoryCard from '../molecules/ClientMemoryCard.jsx'
 import Button from '../atoms/Button.jsx'
 import Treemap from './Treemap.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
@@ -46,6 +47,9 @@ export default function ProposalCard({ record, market }) {
         <h3>Propuesta de portafolio</h3>
         <StatusChip status={status} />
       </div>
+
+      {/* Memoria del agente: si ya conocíamos a este cliente, se dice primero. */}
+      <ClientMemoryCard clientMemory={proposal.client_memory} />
 
       {/* Big Numbers (spec §2): el ojo busca certezas — riesgo y rendimiento primero. */}
       <div className="big-numbers" data-testid="big-numbers">

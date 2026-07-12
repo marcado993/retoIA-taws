@@ -85,6 +85,17 @@ def list_proposals() -> list:
     return sorted(_db["proposals"].values(), key=lambda p: p["created_at"], reverse=True)
 
 
+def get_client_history(client_name: str) -> list:
+    """Memoria del agente: diagnósticos previos de este mismo cliente (por
+    nombre, sin distinguir mayúsculas/espacios), más reciente primero. Se
+    consulta ANTES de crear la propuesta nueva, así que nunca se incluye a
+    sí misma — es historia real, no la propuesta que se está generando."""
+    key = client_name.strip().lower()
+    matches = [p for p in _db["proposals"].values()
+               if p["client_name"].strip().lower() == key]
+    return sorted(matches, key=lambda p: p["created_at"], reverse=True)
+
+
 def get_proposal(pid: str) -> dict | None:
     return _db["proposals"].get(pid)
 
