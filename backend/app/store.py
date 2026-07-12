@@ -50,7 +50,11 @@ def add_audit(action: str, actor: str, proposal_id: str, rules_version: str, det
     return entry
 
 
-def create_proposal(client_name: str, profile_result: dict, proposal: dict) -> dict:
+def create_proposal(client_name: str, profile_result: dict, proposal: dict, status: str = "pendiente") -> dict:
+    """`status="borrador"` crea una propuesta candidata visible solo para el
+    cliente (aún no aparece en la cola del asesor ni cuenta como una
+    conversación real en la memoria del agente) hasta que se confirme con
+    `confirm_proposal`. Ver §"Generar otra propuesta" en el flujo del cliente."""
     with _lock:
         pid = str(uuid.uuid4())[:8]
         record = {
@@ -58,13 +62,14 @@ def create_proposal(client_name: str, profile_result: dict, proposal: dict) -> d
             "version": 1,
             "created_at": _now(),
             "client_name": client_name,
-            "status": "pendiente",
+            "status": status,
             "profile_result": profile_result,
             "proposal": proposal,
             "decision": None,
         }
         _db["proposals"][pid] = record
-        add_audit("propuesta_generada", "agente:inversiones-ia", pid,
+        action = "propuesta_borrador_generada" if status == "borrador" else "propuesta_generada"
+        add_audit(action, "agente:inversiones-ia", pid,
                   profile_result["rules_version"],
                   f"Perfil {profile_result['profile']['label']} (score {profile_result['score']}) para {client_name}")
         # G6 (mitigación de alucinaciones): cada rechazo del verificador queda como
@@ -81,18 +86,52 @@ def create_proposal(client_name: str, profile_result: dict, proposal: dict) -> d
         return record
 
 
-def list_proposals() -> list:
-    return sorted(_db["proposals"].values(), key=lambda p: p["created_at"], reverse=True)
+def confirm_proposal(pid: str) -> dict:
+    """El cliente confirma un borrador ("esta es la propuesta que quiero") —
+    recién ahí pasa a 'pendiente' y aparece en la cola del asesor."""
+    with _lock:
+        record = _db["proposals"].get(pid)
+        if record is None:
+            raise KeyError(pid)
+        if record["status"] != "borrador":
+            raise ValueError(f"La propuesta no es un borrador (estado actual: {record['status']})")
+        record["status"] = "pendiente"
+        add_audit("propuesta_confirmada", f"cliente:{record['client_name']}", pid,
+                  record["profile_result"]["rules_version"],
+                  "El cliente confirmó esta propuesta y la envió a revisión del asesor")
+        _persist()
+        return record
+
+
+def discard_proposal(pid: str) -> None:
+    """Descarta un borrador sin confirmar (p. ej. al pedir 'otra propuesta').
+    Solo borra borradores — nunca una propuesta ya enviada al asesor."""
+    with _lock:
+        record = _db["proposals"].get(pid)
+        if record is None:
+            raise KeyError(pid)
+        if record["status"] != "borrador":
+            raise ValueError(f"Solo se pueden descartar borradores (estado actual: {record['status']})")
+        del _db["proposals"][pid]
+        _persist()
+
+
+def list_proposals(include_drafts: bool = False) -> list:
+    values = _db["proposals"].values()
+    if not include_drafts:
+        values = [p for p in values if p["status"] != "borrador"]
+    return sorted(values, key=lambda p: p["created_at"], reverse=True)
 
 
 def get_client_history(client_name: str) -> list:
     """Memoria del agente: diagnósticos previos de este mismo cliente (por
     nombre, sin distinguir mayúsculas/espacios), más reciente primero. Se
     consulta ANTES de crear la propuesta nueva, así que nunca se incluye a
-    sí misma — es historia real, no la propuesta que se está generando."""
+    sí misma — es historia real, no la propuesta que se está generando.
+    Los borradores no confirmados no cuentan como diagnósticos reales."""
     key = client_name.strip().lower()
     matches = [p for p in _db["proposals"].values()
-               if p["client_name"].strip().lower() == key]
+               if p["client_name"].strip().lower() == key and p["status"] != "borrador"]
     return sorted(matches, key=lambda p: p["created_at"], reverse=True)
 
 

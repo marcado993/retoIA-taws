@@ -12,7 +12,7 @@ export default function StatGrid({ record }) {
       <StatCard title="Diversificación" value={m.diversification}
         chip="Clases" note="Clases de activos en la propuesta." />
       <StatCard title="Estado"
-        value={record.status === 'pendiente' ? 'En revisión' : STATUS[record.status].label}
+        value={record.status === 'pendiente' ? 'En revisión' : (STATUS[record.status] || STATUS.pendiente).label}
         chip="HITL" note="Un asesor humano decide antes de recomendar." />
     </div>
   )

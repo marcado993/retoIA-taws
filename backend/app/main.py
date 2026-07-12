@@ -88,10 +88,7 @@ def market():
         return market_data.get_cached_payload() or {"provider": "n/d", "live": False, "quotes": {}}
 
 
-@app.post("/api/proposals")
-def create_proposal(req: ProfileRequest):
-    """HU1 + HU2: evalúa el perfil con reglas versionadas y genera la
-    propuesta explicable. Queda 'pendiente' hasta la revisión del asesor."""
+def _generate_proposal(req: ProfileRequest, status: str) -> dict:
     try:
         profile_result = asesor_financiero.evaluate_profile(req.answers)
     except ValueError as e:
@@ -105,15 +102,56 @@ def create_proposal(req: ProfileRequest):
     news = news_scraper.get_cached_news()
     # Memoria del agente: si este cliente ya se diagnosticó antes, el agente
     # lo recuerda — no repite el flujo desde cero (continuidad de la conversación).
+    # Los borradores no confirmados no cuentan como diagnósticos previos.
     client_history = store.get_client_history(req.client_name)
     proposal = inversiones_ia.build_proposal(
         profile_result, goal=goal, market=market, news=news, client_history=client_history)
-    return store.create_proposal(req.client_name, profile_result, proposal)
+    return store.create_proposal(req.client_name, profile_result, proposal, status=status)
+
+
+@app.post("/api/proposals")
+def create_proposal(req: ProfileRequest):
+    """HU1 + HU2: evalúa el perfil con reglas versionadas y genera la
+    propuesta explicable. Queda 'pendiente' hasta la revisión del asesor."""
+    return _generate_proposal(req, status="pendiente")
+
+
+@app.post("/api/proposals/draft")
+def create_draft_proposal(req: ProfileRequest):
+    """Igual que /api/proposals, pero la propuesta queda como 'borrador':
+    solo la ve el cliente hasta que la confirme. Permite 'Generar otra
+    propuesta' sin llenar la cola del asesor con candidatas descartadas."""
+    return _generate_proposal(req, status="borrador")
+
+
+@app.post("/api/proposals/{pid}/confirm")
+def confirm_proposal(pid: str):
+    """El cliente confirma un borrador ('esta es la propuesta que quiero') y
+    recién ahí se envía a la cola de revisión del asesor."""
+    try:
+        return store.confirm_proposal(pid)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.post("/api/proposals/{pid}/discard")
+def discard_proposal(pid: str):
+    """Descarta un borrador sin confirmar, p. ej. al pedir otra propuesta."""
+    try:
+        store.discard_proposal(pid)
+        return {"ok": True}
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @app.get("/api/proposals")
 def list_proposals():
-    """HU3: cola de revisión del asesor."""
+    """HU3: cola de revisión del asesor. Los borradores no confirmados no
+    aparecen aquí."""
     return store.list_proposals()
 
 

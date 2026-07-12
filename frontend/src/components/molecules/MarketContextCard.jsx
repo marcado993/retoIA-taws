@@ -14,6 +14,7 @@ export default function MarketContextCard({ marketContext }) {
   if (!marketContext) return null
   const { signals = {}, narrative, source } = marketContext
   const growingInPort = signals.growing_in_portfolio || []
+  const trendingInPort = signals.trending_in_portfolio || []
   const themes = signals.active_themes || []
   const bySource = source && source.startsWith('deepseek')
     ? { label: 'IA · DeepSeek', tone: 'chip-green' }
@@ -35,6 +36,19 @@ export default function MarketContextCard({ marketContext }) {
             {growingInPort.map(g => (
               <span key={g.ticker} className="mkt-up-chip" data-testid="mkt-up-chip">
                 {g.ticker} ▲ {g.change_pct}%
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {trendingInPort.length > 0 && (
+        <div className="market-context-block">
+          <span className="market-context-label">Tendencia real del último período (histórico Yahoo Finance)</span>
+          <div className="market-context-chips">
+            {trendingInPort.map(t => (
+              <span key={t.ticker} className={`mkt-trend-chip ${t.trend_pct >= 0 ? 'up' : 'down'}`} data-testid="mkt-trend-chip">
+                {t.ticker} {t.trend_pct >= 0 ? '▲' : '▼'} {Math.abs(t.trend_pct)}%
               </span>
             ))}
           </div>

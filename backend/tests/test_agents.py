@@ -690,3 +690,122 @@ class TestMemoriaCliente:
         proposal = inversiones_ia.build_proposal(result)
         assert proposal["client_memory"] is None
         assert "diagnóstico número" not in proposal["explanation"]
+
+
+class TestBorradorConfirmarDescartar:
+    """Flujo 'Generar otra propuesta' / 'Esta es la que quiero': una propuesta
+    puede crearse como borrador (solo el cliente la ve) y luego confirmarse
+    (pasa a 'pendiente' y recién ahí entra a la cola del asesor) o
+    descartarse (se borra sin dejar rastro en la cola ni en la memoria)."""
+
+    def _isolated_store(self, monkeypatch, tmp_path):
+        from app import store
+        monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
+        monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
+        return store
+
+    def test_borrador_no_aparece_en_la_cola_del_asesor(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        record = store.create_proposal("Dana Vera", result, proposal, status="borrador")
+
+        assert record["status"] == "borrador"
+        assert record["id"] not in [p["id"] for p in store.list_proposals()]
+        assert record["id"] in [p["id"] for p in store.list_proposals(include_drafts=True)]
+
+    def test_borrador_no_cuenta_como_memoria_del_cliente(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        store.create_proposal("Elio Paz", result, proposal, status="borrador")
+
+        assert store.get_client_history("Elio Paz") == []
+
+    def test_confirmar_borrador_lo_pasa_a_pendiente_y_a_la_cola(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        draft = store.create_proposal("Fabi Leon", result, proposal, status="borrador")
+
+        confirmed = store.confirm_proposal(draft["id"])
+
+        assert confirmed["status"] == "pendiente"
+        assert confirmed["id"] in [p["id"] for p in store.list_proposals()]
+        assert len(store.get_client_history("Fabi Leon")) == 1
+
+    def test_confirmar_una_propuesta_que_no_es_borrador_falla(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        record = store.create_proposal("Gus Nuñez", result, proposal)  # ya 'pendiente'
+
+        with pytest.raises(ValueError):
+            store.confirm_proposal(record["id"])
+
+    def test_descartar_borrador_lo_elimina_del_store(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        draft = store.create_proposal("Hana Roca", result, proposal, status="borrador")
+
+        store.discard_proposal(draft["id"])
+
+        assert store.get_proposal(draft["id"]) is None
+
+    def test_descartar_una_propuesta_confirmada_falla(self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        record = store.create_proposal("Ivo Mora", result, proposal)  # ya 'pendiente'
+
+        with pytest.raises(ValueError):
+            store.discard_proposal(record["id"])
+        assert store.get_proposal(record["id"]) is not None
+
+
+class TestTendenciaHistoricaAntiAlucinacion:
+    """El contexto de mercado no solo mira el cambio de HOY (change_pct):
+    también calcula una tendencia real desde el historial de cierres de Yahoo
+    Finance (trend_pct) y la deja pasar por el verificador anti-alucinación
+    como una cifra permitida — así el LLM puede hablar de tendencia real sin
+    que el verificador la confunda con un número inventado."""
+
+    def test_compute_trend_pct_con_historial_valido(self):
+        trend = inversiones_ia._compute_trend_pct([100, 102, 105, 110])
+        assert trend == 10.0  # (110-100)/100 * 100
+
+    def test_compute_trend_pct_con_historial_insuficiente(self):
+        assert inversiones_ia._compute_trend_pct([100]) is None
+        assert inversiones_ia._compute_trend_pct([]) is None
+        assert inversiones_ia._compute_trend_pct(None) is None
+
+    def test_compute_trend_pct_tendencia_negativa(self):
+        trend = inversiones_ia._compute_trend_pct([100, 95, 90])
+        assert trend == -10.0
+
+    def test_market_signals_incluye_tendencia_del_portafolio(self, answers_agresivo):
+        profile = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(profile)
+        ticker = proposal["allocation"][0]["ticker"]
+        market = {"quotes": {ticker: {"change_pct": 0.5, "history": [100, 101, 103]}}}
+
+        signals = inversiones_ia._compute_market_signals(proposal["allocation"], market, None)
+
+        assert len(signals["trending_in_portfolio"]) == 1
+        assert signals["trending_in_portfolio"][0]["ticker"] == ticker
+        assert signals["trending_in_portfolio"][0]["trend_pct"] == 3.0
+
+    def test_verificador_acepta_tendencia_historica_real_como_cifra_valida(self):
+        """El % de tendencia real (no solo el de hoy) debe pasar el verificador
+        si se declara como `extra_allowed` — es la misma cifra que ve el LLM."""
+        metrics = {"expected_return": 7.0, "volatility": 10.0}
+        text = "SPY muestra una tendencia del 8.4% en el último período, según su historial real."
+        ok, reason = inversiones_ia._verify_llm_output(text, metrics, extra_allowed=[8.4])
+        assert ok, reason
+
+    def test_verificador_rechaza_tendencia_inventada_no_provista(self):
+        metrics = {"expected_return": 7.0, "volatility": 10.0}
+        text = "SPY muestra una tendencia del 99.9% en el último período."
+        ok, reason = inversiones_ia._verify_llm_output(text, metrics, extra_allowed=[8.4])
+        assert not ok

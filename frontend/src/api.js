@@ -23,6 +23,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ client_name: clientName, answers, goal: goal || null }),
     }),
+  // Borrador: solo lo ve el cliente ("vista previa") hasta que lo confirme —
+  // permite "Generar otra propuesta" sin llenar la cola del asesor.
+  createDraftProposal: (clientName, answers, goal) =>
+    request('/proposals/draft', {
+      method: 'POST',
+      body: JSON.stringify({ client_name: clientName, answers, goal: goal || null }),
+    }),
+  confirmProposal: (id) => request(`/proposals/${id}/confirm`, { method: 'POST' }),
+  discardProposal: (id) => request(`/proposals/${id}/discard`, { method: 'POST' }),
   listProposals: () => request('/proposals'),
   decide: (id, payload) =>
     request(`/proposals/${id}/decision`, {

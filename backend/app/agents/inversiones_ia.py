@@ -290,20 +290,40 @@ _THEME_LABELS = {
 }
 
 
+def _compute_trend_pct(history: list | None) -> float | None:
+    """% de variación entre el primer y el último cierre de la serie histórica
+    (hasta ~1 mes de cierres reales de Yahoo Finance, ver market_data.py).
+    Es una señal DISTINTA de `change_pct` (que es solo el cambio de HOY):
+    esta mide la tendencia real del período, para que la narrativa pueda
+    hablar de tendencia sin inventar un número que no viene de ningún lado."""
+    if not history or len(history) < 2:
+        return None
+    start, end = history[0], history[-1]
+    if not start:
+        return None
+    return round((end - start) / start * 100, 2)
+
+
 def _compute_market_signals(allocation: list, market: dict | None, news: list | None) -> dict:
     """Señales 100% determinísticas: qué instrumentos suben hoy (change_pct > 0),
+    la tendencia real del último período (trend_pct, desde el historial de cierres),
     cuáles de ellos están en el portafolio propuesto, y qué temas dominan los
     titulares. Es la evidencia verificable que alimenta la narrativa de la IA."""
     quotes = (market or {}).get("quotes", {})
     in_port = {a["ticker"] for a in allocation}
 
     growing = []
+    trending = []
     for tk, q in quotes.items():
         cp = q.get("change_pct")
         if cp is not None and cp > 0:
             growing.append({"ticker": tk, "change_pct": round(float(cp), 2),
                             "in_portfolio": tk in in_port})
+        trend_pct = _compute_trend_pct(q.get("history"))
+        if trend_pct is not None:
+            trending.append({"ticker": tk, "trend_pct": trend_pct, "in_portfolio": tk in in_port})
     growing.sort(key=lambda g: g["change_pct"], reverse=True)
+    trending.sort(key=lambda t: abs(t["trend_pct"]), reverse=True)
 
     themes = {}
     if news:
@@ -317,6 +337,7 @@ def _compute_market_signals(allocation: list, market: dict | None, news: list | 
     return {
         "growing": growing[:5],
         "growing_in_portfolio": [g for g in growing if g["in_portfolio"]][:5],
+        "trending_in_portfolio": [t for t in trending if t["in_portfolio"]][:5],
         "active_themes": active_themes,
         "news_count": len(news or []),
         "provider": (market or {}).get("provider"),
@@ -329,7 +350,7 @@ def _build_market_context(profile_result: dict, allocation: list, metrics: dict,
     """Construye el contexto de mercado de la propuesta. Devuelve (contexto, eventos).
     El contexto es None si no hay ninguna señal (sin mercado ni noticias)."""
     signals = _compute_market_signals(allocation, market, news)
-    if not signals["growing"] and not signals["active_themes"]:
+    if not signals["growing"] and not signals["active_themes"] and not signals.get("trending_in_portfolio"):
         return None, []
 
     narrative, source, events = _market_narrative(profile_result, allocation, metrics, signals)
@@ -344,7 +365,12 @@ def _market_narrative(profile_result: dict, allocation: list, metrics: dict,
     events: list = []
     llm_text = _try_llm_market_context(profile_result, allocation, metrics, signals)
     if llm_text:
+        # Los % permitidos incluyen el cambio de HOY (change_pct) y la tendencia
+        # real del último período (trend_pct, desde el historial de Yahoo Finance)
+        # — así el LLM puede hablar de tendencia sin que el verificador la
+        # confunda con un número inventado.
         extra = [g["change_pct"] for g in signals["growing"]]
+        extra += [t["trend_pct"] for t in signals.get("trending_in_portfolio", [])]
         ok, reason = _verify_llm_output(llm_text, metrics, extra_allowed=extra)
         if ok and _tickers_within_catalog(llm_text):
             return llm_text, _deepseek_model(), events
@@ -391,6 +417,15 @@ def _template_market_context(profile_result: dict, allocation: list, signals: di
             f"Tu portafolio se mantiene dentro del catálogo aprobado y acorde a tu perfil {label}."
         )
 
+    trend = signals.get("trending_in_portfolio") or []
+    if trend:
+        top_trend = trend[0]
+        direction = "sube" if top_trend["trend_pct"] > 0 else "baja"
+        parts.append(
+            f"En el último período, {top_trend['ticker']} {direction} {abs(top_trend['trend_pct'])}% "
+            f"según su historial real de cierres — no es solo el movimiento de hoy."
+        )
+
     if signals["active_themes"]:
         labels = ", ".join(_THEME_LABELS.get(t, t) for t in signals["active_themes"])
         parts.append(
@@ -407,25 +442,31 @@ def _try_llm_market_context(profile_result: dict, allocation: list, metrics: dic
     """Capa narrativa opcional con DeepSeek para el contexto de mercado."""
     growing = [{"ticker": g["ticker"], "cambio_pct": g["change_pct"],
                 "en_portafolio": g["in_portfolio"]} for g in signals["growing"]]
+    trending = [{"ticker": t["ticker"], "tendencia_pct": t["trend_pct"]}
+                for t in signals.get("trending_in_portfolio", [])]
     themes = [_THEME_LABELS.get(t, t) for t in signals["active_themes"]]
     prompt = (
         "Eres el agente Inversiones IA. En 2-3 frases y en español claro, explica "
-        "cómo las condiciones de mercado y noticias de HOY se relacionan con ESTA "
-        "propuesta de portafolio, para mostrar que está alineada con la tendencia "
-        "actual. Reglas estrictas: "
-        "(1) básate ÚNICAMENTE en los movimientos y temas de noticias listados "
-        "abajo — no opines sobre mercados o instrumentos que no aparezcan ahí; "
+        "cómo las condiciones de mercado y noticias de HOY —y la tendencia real del "
+        "último período, no solo el movimiento de hoy— se relacionan con ESTA "
+        "propuesta de portafolio, para mostrar que está alineada. Reglas estrictas: "
+        "(1) básate ÚNICAMENTE en los movimientos, tendencias y temas de noticias "
+        "listados abajo — no opines sobre mercados o instrumentos que no aparezcan ahí "
+        "ni sobre periodos de tiempo no provistos; "
         "(2) menciona explícitamente al menos un ticker o tema de los provistos, "
         "no des una explicación genérica que ignore los datos de hoy; "
         "(3) usa SOLO los tickers listados, no inventes instrumentos; "
         "(4) NO cambies ni sugieras pesos nuevos; "
         "(5) NO prometas rentabilidad ni uses la palabra 'garantiza'; "
-        "(6) usa solo las cifras % provistas. Aclara que cualquier ajuste lo decide "
+        "(6) usa solo las cifras % provistas (tanto el cambio de hoy como la "
+        "tendencia del período son datos reales de Yahoo Finance, no los redondees "
+        "ni inventes otros). Aclara que cualquier ajuste lo decide "
         "el asesor humano. Si no hay movimientos ni temas relevantes, dilo "
         "explícitamente en vez de improvisar.\n"
         f"Perfil del cliente: {profile_result['profile']['label']}\n"
         f"Instrumentos del portafolio: {json.dumps([a['ticker'] for a in allocation])}\n"
         f"Instrumentos que suben hoy: {json.dumps(growing, ensure_ascii=False)}\n"
+        f"Tendencia real del último período (histórico de cierres): {json.dumps(trending, ensure_ascii=False)}\n"
         f"Temas en las noticias: {json.dumps(themes, ensure_ascii=False)}"
     )
     return _call_deepseek(prompt, max_tokens=260)

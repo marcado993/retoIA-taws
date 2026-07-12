@@ -348,6 +348,25 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .btn-row .btn-primary { width: auto; margin-top: 4px; }
 
+/* Rastro de pasos macro del diagnóstico (Tus datos → Cuestionario → Revisión).
+   Visibilidad del sistema (Nielsen H1): siempre visible arriba de la tarjeta,
+   distinto de los puntos .q-dot que navegan las 6 preguntas dentro del paso 2. */
+.wizard-steps { display: flex; align-items: center; gap: 6px; margin: 4px 0 18px; flex-wrap: wrap; }
+.wizard-step { display: flex; align-items: center; gap: 6px; opacity: 0.5; transition: var(--transition); }
+.wizard-step.active, .wizard-step.done { opacity: 1; }
+.wizard-step-dot {
+  width: 22px; height: 22px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; font-size: 11px; font-weight: 800;
+  border: 1.5px solid var(--border); color: var(--muted); background: var(--card);
+}
+.wizard-step.active .wizard-step-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.wizard-step.done .wizard-step-dot { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+.wizard-step-label { font-size: 12.5px; font-weight: 700; color: var(--ink-mid); }
+.wizard-step.active .wizard-step-label { color: var(--ink); }
+.wizard-step:not(:last-child)::after {
+  content: ''; width: 18px; height: 1.5px; background: var(--border); margin-left: 6px;
+}
+
 /* ── Questionnaire ── */
 .q-progress { display: flex; gap: 8px; margin: 16px 0; }
 .q-dot {
@@ -1460,6 +1479,12 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
   font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: var(--radius-pill);
   background: var(--blue-soft); color: var(--blue); border: 1px solid rgba(37,99,235,0.2);
 }
+.mkt-trend-chip {
+  font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+  padding: 4px 11px; border-radius: var(--radius-pill); border: 1px solid transparent;
+}
+.mkt-trend-chip.up { background: #DCFCE7; color: #15803D; border-color: rgba(21,128,61,0.25); }
+.mkt-trend-chip.down { background: #FEE2E2; color: #B91C1C; border-color: rgba(185,28,28,0.2); }
 .market-context-foot { font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
 /* Memoria del agente: cifras leídas del historial guardado, nunca del LLM
@@ -1475,6 +1500,17 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
 .client-memory-title { font-size: 13px; font-weight: 800; color: #6D28D9; letter-spacing: -0.2px; }
 .client-memory-text { font-size: 13.5px; line-height: 1.6; color: var(--ink-mid); }
 .client-memory-foot { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+
+/* Vista previa de borrador (spec: visibilidad del sistema, Nielsen H1) — acento
+   ámbar para distinguirla de un estado ya enviado (amarillo "pendiente") o
+   confirmado (verde). */
+.draft-banner {
+  margin: 0 0 16px; padding: 16px 18px;
+  background: linear-gradient(180deg, #FFFBEB 0%, #fff 60%);
+  border: 1px solid rgba(217,119,6,0.25); border-left: 4px solid #D97706;
+  border-radius: var(--radius-card);
+}
+.draft-banner-text { font-size: 13.5px; line-height: 1.6; color: var(--ink-mid); margin-bottom: 12px; }
 
 /* ════════════════════════════════════════════════════════════════════════
    RESPONSIVIDAD — Mobile & Tablet

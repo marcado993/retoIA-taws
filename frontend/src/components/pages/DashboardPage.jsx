@@ -14,7 +14,7 @@ import Modal from '../organisms/Modal.jsx'
 // El diagnóstico vive en un modal (no en la página): así la página de fondo
 // nunca pierde su scroll/contexto ("momentum") y cerrar el modal siempre te
 // regresa a donde estabas — ya no hay callejón sin salida al empezar el test.
-export default function DashboardPage({ questionnaire, record, market, catalog, loading, error, onSubmit, onReset, onSeeRules }) {
+export default function DashboardPage({ questionnaire, record, market, catalog, loading, error, onSubmit, onReset, onRegenerate, onConfirm, onSeeRules }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [initialAnswers, setInitialAnswers] = useState({})
   const pr = record?.profile_result
@@ -27,10 +27,12 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
     if (record) setModalOpen(false)
   }, [record])
 
+  const isDraft = record?.status === 'borrador'
+
   const steps = [
     { day: 'Paso 1', text: 'Completa tu diagnóstico de objetivo, horizonte y riesgo', done: !!record },
-    { day: 'Paso 2', text: 'Revisa tu propuesta explicable de portafolio', done: !!record },
-    { day: 'Paso 3', text: 'Un asesor autorizado aprueba, edita o rechaza', done: !!record && record.status !== 'pendiente' },
+    { day: 'Paso 2', text: 'Revisa la propuesta y confirma la que quieres enviar', done: !!record && !isDraft },
+    { day: 'Paso 3', text: 'Un asesor autorizado aprueba, edita o rechaza', done: !!record && !isDraft && record.status !== 'pendiente' },
   ]
 
   const questionnaireModal = (
@@ -68,6 +70,28 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
         left={
           <>
             <BreakdownCard profileResult={pr} />
+            {/* Visibilidad del sistema (Nielsen H1): mientras la propuesta es un
+                borrador, el cliente sabe que TODAVÍA no se envió a nadie — y puede
+                pedir otra candidata (misma info guardada) o confirmar esta. */}
+            {isDraft && (
+              <div className="draft-banner" data-testid="draft-banner">
+                <p className="draft-banner-text">
+                  <strong>Vista previa:</strong> esta propuesta aún no se envió al
+                  asesor. Puedes generar otra opción con los mismos datos o
+                  confirmar esta para enviarla a revisión.
+                </p>
+                <div className="btn-row">
+                  <Button variant="ghost" data-testid="regenerate-btn" disabled={loading}
+                    onClick={onRegenerate}>
+                    {loading ? 'Generando…' : '🔁 Generar otra propuesta'}
+                  </Button>
+                  <Button data-testid="confirm-proposal-btn" disabled={loading}
+                    className={loading ? '' : 'btn-pulse'} onClick={onConfirm}>
+                    ✓ Esta es la propuesta que quiero
+                  </Button>
+                </div>
+              </div>
+            )}
             <ProposalCard record={record} market={market} />
             {/* Siempre disponible: un perfil puede cambiar con el tiempo, así que
                 nunca se cierra la puerta a un nuevo diagnóstico. */}

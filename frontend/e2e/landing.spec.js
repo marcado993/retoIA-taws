@@ -13,6 +13,10 @@ test('la landing precede al cuestionario y un caso de uso pre-rellena la primera
   await page.getByTestId('goal-card').nth(3).click()
 
   await expect(page.getByTestId('client-name')).toBeVisible()
+  await page.getByTestId('client-name').fill('Caso De Uso')
+  await page.getByTestId('goto-preguntas').click()
+
+  // La respuesta pre-rellenada por el caso de uso ya cuenta como respondida.
   await expect(page.locator('.q-dot.done')).toHaveCount(1)
   await expect(page.locator('.q-text')).toContainText('cuánto tiempo')
 })

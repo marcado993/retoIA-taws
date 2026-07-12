@@ -14,6 +14,11 @@ export default function InteractiveGuide({ currentTab, setTab, record, proposals
     stepDesc = 'Comienza completando tu cuestionario de perfilamiento en Mi Plan Financiero para que los agentes de IA construyan tu propuesta de portafolio.'
     actionLabel = 'Ir al Formulario'
     targetTab = 'dashboard'
+  } else if (record && record.status === 'borrador') {
+    stepTitle = 'Paso 2: Confirma tu propuesta'
+    stepDesc = 'Esto es una vista previa: todavía no se envió a nadie. Genera otra opción con los mismos datos si quieres comparar, o confirma esta para mandarla a revisión del asesor.'
+    actionLabel = 'Ver mi propuesta'
+    targetTab = 'dashboard'
   } else if (record && record.status === 'pendiente') {
     stepTitle = 'Paso 2: Aprobación del Asesor (HITL Loop)'
     stepDesc = 'La propuesta se generó en estado "Pendiente". Cambia a "Asistente Financiero" en la barra superior para auditar, ajustar pesos si es necesario, y aprobar o rechazar.'

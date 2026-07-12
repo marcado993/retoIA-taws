@@ -60,12 +60,20 @@ const OPTION_HINTS = {
 // HU1: el Asesor Financiero IA realiza el cuestionario de perfilamiento.
 // Nielsen: H1 progreso visible · H3 volver y cambiar respuestas · H5 no se puede
 // enviar incompleto · H6 revisión de respuestas antes de calcular · H10 ayuda por pregunta.
+// Los 3 pasos macro del diagnóstico (spec: visibilidad del sistema — Nielsen
+// H1 — el usuario siempre sabe en qué parte del flujo está y cuánto falta).
+const STEPS = [
+  { id: 'datos', label: 'Tus datos' },
+  { id: 'preguntas', label: 'Cuestionario' },
+  { id: 'review', label: 'Revisión' },
+]
+
 export default function QuestionnaireCard({ questionnaire, onSubmit, loading, onSeeRules, initialAnswers = {} }) {
   const [clientName, setClientName] = useState('')
   const [answers, setAnswers] = useState(initialAnswers)
   const [step, setStep] = useState(Object.keys(initialAnswers).length)
-  const [phase, setPhase] = useState('form') // 'form' | 'review'
-  
+  const [phase, setPhase] = useState('datos') // 'datos' | 'preguntas' | 'review'
+
   const [targetAmount, setTargetAmount] = useState('')
   const [targetYears, setTargetYears] = useState('')
   const [monthlyContrib, setMonthlyContrib] = useState('')
@@ -75,6 +83,7 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
   const answered = Object.keys(answers).length
   const nameValid = isValidName(clientName)
   const complete = answered === questions.length && nameValid
+  const stepIndex = STEPS.findIndex(s => s.id === phase)
 
   // Guía dinámica: el primer campo de la lista que aún no está lleno/válido.
   const fieldFilled = {
@@ -84,6 +93,19 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
     aporte: monthlyContrib.trim() !== '',
   }
   const activeField = FIELD_GUIDE.find(f => !fieldFilled[f.key])?.key ?? null
+
+  // Cabecera común: título + chip de reglas + rastro de "Paso X de 3" siempre
+  // visible, para que el usuario nunca pierda de vista dónde está parado.
+  const stepsHeader = (
+    <div className="wizard-steps" data-testid="wizard-steps">
+      {STEPS.map((s, i) => (
+        <div key={s.id} className={`wizard-step ${i === stepIndex ? 'active' : ''} ${i < stepIndex ? 'done' : ''}`}>
+          <span className="wizard-step-dot">{i < stepIndex ? '✓' : i + 1}</span>
+          <span className="wizard-step-label">{s.label}</span>
+        </div>
+      ))}
+    </div>
+  )
 
   const answerLabel = (qq) =>
     qq.options.find(o => o.value === answers[qq.id])
@@ -107,12 +129,13 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
           <h3>Revisa tus respuestas</h3>
           <Chip tone="neutral">Reglas v{questionnaire.rules_version}</Chip>
         </div>
+        {stepsHeader}
         <AgentBubble>
           Antes de calcular tu perfil, confirma tus respuestas, <strong>{clientName}</strong>.
           Cada una aporta <em>puntos × peso</em> al puntaje final (0–100), con reglas
           visibles y versionadas — puedes cambiarlas todas las veces que quieras.
         </AgentBubble>
-        
+
         {/* Meta Personalizada del Inversor */}
         <div className="bg-brand-blue-soft border border-brand-border rounded p-3 mb-4">
           <span className="text-xs font-bold text-brand-blue block mb-1">META PERSONALIZADA DE INVERSIÓN</span>
@@ -131,7 +154,7 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
               </div>
               <Chip tone="lime">{opt.points} pt × {qq.weight}%</Chip>
               <Button variant="ghost" className="btn-small" data-testid={`edit-answer-${i}`}
-                onClick={() => { setStep(i); setPhase('form') }}>Cambiar</Button>
+                onClick={() => { setStep(i); setPhase('preguntas') }}>Cambiar</Button>
             </div>
           )
         })}
@@ -145,59 +168,80 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
             onClick={handleCalculate}>
             {loading ? 'Calculando perfil…' : 'Calcular mi perfil y generar propuesta'}
           </Button>
-          <Button variant="ghost" onClick={() => setPhase('form')}>← Volver</Button>
+          <Button variant="ghost" onClick={() => setPhase('preguntas')}>← Volver</Button>
         </div>
       </div>
     )
   }
 
+  if (phase === 'datos') {
+    return (
+      <div className="card">
+        <div className="card-head">
+          <h3>Diagnóstico de perfil</h3>
+          <Chip tone="neutral">Reglas v{questionnaire.rules_version}</Chip>
+        </div>
+        {stepsHeader}
+
+        <AgentBubble>
+          Hola, soy tu <strong>Asesor Financiero IA</strong>. Primero necesito unos
+          datos básicos; luego {questions.length} preguntas cortas
+          calcularán tu perfil de inversionista usando reglas 100% visibles
+          (<button className="link-btn" onClick={onSeeRules}>puedes verlas aquí</button>).
+          Nada se ejecuta: al final un asesor humano revisa todo.
+        </AgentBubble>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <FieldLabel>Tu nombre</FieldLabel>
+            <FieldGuideArrow active={activeField === 'nombre'} text={FIELD_GUIDE[0].text} />
+            <Input data-testid="client-name" value={clientName} placeholder="Ej. Alex Rivera"
+              className={activeField === 'nombre' ? 'field-active' : clientName && !nameValid ? 'field-invalid' : ''}
+              onChange={e => setClientName(e.target.value)} />
+            {clientName && !nameValid && (
+              <span className="field-error" data-testid="name-error">Escribe al menos 2 letras (sin números ni símbolos).</span>
+            )}
+          </div>
+          <div>
+            <FieldLabel>Meta Objetivo (USD)</FieldLabel>
+            <FieldGuideArrow active={activeField === 'meta'} text={FIELD_GUIDE[1].text} />
+            <Input type="number" value={targetAmount} placeholder="Ej. 1000000"
+              className={activeField === 'meta' ? 'field-active' : ''}
+              onChange={e => setTargetAmount(e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel>Plazo Meta (Años)</FieldLabel>
+            <FieldGuideArrow active={activeField === 'plazo'} text={FIELD_GUIDE[2].text} />
+            <Input type="number" value={targetYears} placeholder="Ej. 5"
+              className={activeField === 'plazo' ? 'field-active' : ''}
+              onChange={e => setTargetYears(e.target.value)} />
+          </div>
+          <div>
+            <FieldLabel>Aporte Mensual (USD)</FieldLabel>
+            <FieldGuideArrow active={activeField === 'aporte'} text={FIELD_GUIDE[3].text} />
+            <Input type="number" value={monthlyContrib} placeholder="Ej. 2000"
+              className={activeField === 'aporte' ? 'field-active' : ''}
+              onChange={e => setMonthlyContrib(e.target.value)} />
+          </div>
+        </div>
+
+        <Button data-testid="goto-preguntas" disabled={!nameValid}
+          className={nameValid ? 'btn-pulse' : ''}
+          onClick={() => setPhase('preguntas')}>
+          {nameValid ? 'Siguiente: cuestionario →' : 'Escribe tu nombre para continuar'}
+        </Button>
+      </div>
+    )
+  }
+
+  // phase === 'preguntas'
   return (
     <div className="card">
       <div className="card-head">
-        <h3>Diagnóstico de perfil</h3>
+        <h3>Cuestionario de perfilamiento</h3>
         <Chip tone="neutral">Reglas v{questionnaire.rules_version}</Chip>
       </div>
-
-      <AgentBubble>
-        Hola, soy tu <strong>Asesor Financiero IA</strong>. Con {questions.length} preguntas
-        cortas calcularé tu perfil de inversionista usando reglas 100% visibles
-        (<button className="link-btn" onClick={onSeeRules}>puedes verlas aquí</button>).
-        Nada se ejecuta: al final un asesor humano revisa todo.
-      </AgentBubble>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <div>
-          <FieldLabel>Tu nombre</FieldLabel>
-          <FieldGuideArrow active={activeField === 'nombre'} text={FIELD_GUIDE[0].text} />
-          <Input data-testid="client-name" value={clientName} placeholder="Ej. Alex Rivera"
-            className={activeField === 'nombre' ? 'field-active' : clientName && !nameValid ? 'field-invalid' : ''}
-            onChange={e => setClientName(e.target.value)} />
-          {clientName && !nameValid && (
-            <span className="field-error" data-testid="name-error">Escribe al menos 2 letras (sin números ni símbolos).</span>
-          )}
-        </div>
-        <div>
-          <FieldLabel>Meta Objetivo (USD)</FieldLabel>
-          <FieldGuideArrow active={activeField === 'meta'} text={FIELD_GUIDE[1].text} />
-          <Input type="number" value={targetAmount} placeholder="Ej. 1000000"
-            className={activeField === 'meta' ? 'field-active' : ''}
-            onChange={e => setTargetAmount(e.target.value)} />
-        </div>
-        <div>
-          <FieldLabel>Plazo Meta (Años)</FieldLabel>
-          <FieldGuideArrow active={activeField === 'plazo'} text={FIELD_GUIDE[2].text} />
-          <Input type="number" value={targetYears} placeholder="Ej. 5"
-            className={activeField === 'plazo' ? 'field-active' : ''}
-            onChange={e => setTargetYears(e.target.value)} />
-        </div>
-        <div>
-          <FieldLabel>Aporte Mensual (USD)</FieldLabel>
-          <FieldGuideArrow active={activeField === 'aporte'} text={FIELD_GUIDE[3].text} />
-          <Input type="number" value={monthlyContrib} placeholder="Ej. 2000"
-            className={activeField === 'aporte' ? 'field-active' : ''}
-            onChange={e => setMonthlyContrib(e.target.value)} />
-        </div>
-      </div>
+      {stepsHeader}
 
       {/* Indicador de progreso siempre visible (spec §1): barra pegajosa arriba
           del bloque de preguntas para que el usuario sepa cuánto falta. */}
@@ -237,12 +281,13 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
         ))}
       </div>
 
-      <Button data-testid="goto-review" disabled={!complete}
-        onClick={() => setPhase('review')}>
-        {complete ? 'Revisar mis respuestas →'
-          : !nameValid && answered === questions.length ? 'Escribe tu nombre para continuar'
-          : `Responde ${questions.length - answered} pregunta(s) más`}
-      </Button>
+      <div className="btn-row">
+        <Button data-testid="goto-review" disabled={!complete}
+          onClick={() => setPhase('review')}>
+          {complete ? 'Revisar mis respuestas →' : `Responde ${questions.length - answered} pregunta(s) más`}
+        </Button>
+        <Button variant="ghost" onClick={() => setPhase('datos')}>← Volver a mis datos</Button>
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import Chip from '../atoms/Chip.jsx'
 
 // Único mapa estado→presentación (antes duplicado en ProposalView y AdvisorPanel).
 export const STATUS = {
+  borrador: { tone: 'neutral', label: 'Vista previa (sin enviar)' },
   pendiente: { tone: 'yellow', label: 'Pendiente de asesor' },
   aprobada: { tone: 'green', label: 'Aprobada' },
   aprobada_con_cambios: { tone: 'green', label: 'Aprobada con cambios' },
