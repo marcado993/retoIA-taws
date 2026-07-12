@@ -10,6 +10,7 @@ import Button from '../atoms/Button.jsx'
 import Treemap from './Treemap.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
 import SlideOver from './SlideOver.jsx'
+import { api } from '../../api.js'
 
 // Traducción de la "caja negra" (spec §2): en vez de un párrafo denso, se responde
 // "¿Por qué esta diversificación?" con viñetas cortas derivadas de los propios datos
@@ -40,6 +41,16 @@ export default function ProposalCard({ record, market }) {
   const profileLabel = record.profile_result?.profile?.label || '—'
   const reasons = buildReasons(proposal, profileLabel)
   const [detailOpen, setDetailOpen] = useState(false)
+  const canDownloadReport = status !== 'pendiente'
+
+  const downloadReport = () => {
+    const link = document.createElement('a')
+    link.href = api.suitabilityReportUrl(record.id)
+    link.download = `reporte-idoneidad-${record.id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
 
   return (
     <div className="card">
@@ -71,10 +82,18 @@ export default function ProposalCard({ record, market }) {
         <span className="proposal-detail-hint">
           {proposal.metrics.diversification} instrumentos · catálogo aprobado v{proposal.catalog_version}
         </span>
-        <Button variant="ghost" data-testid="open-proposal-detail"
-          onClick={() => setDetailOpen(true)}>
-          Ver instrumentos, precios y límites
-        </Button>
+        <div className="proposal-detail-actions">
+          <Button variant="ghost" data-testid="open-proposal-detail"
+            onClick={() => setDetailOpen(true)}>
+            Ver instrumentos, precios y límites
+          </Button>
+          {canDownloadReport && (
+            <Button variant="ghost" data-testid="download-suitability-report"
+              onClick={downloadReport}>
+              Descargar PDF
+            </Button>
+          )}
+        </div>
       </div>
 
       <AgentBubble agent="Inversiones IA">

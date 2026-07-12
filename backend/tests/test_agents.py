@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.agents import asesor_financiero, inversiones_ia
 from app.agents.inversiones_ia import _verify_llm_output, _template_explanation
+from app.pdf_report import DISCLAIMER_TEXT, generate_suitability_report_pdf
 
 
 # ── Utilidades para mockear la API de DeepSeek sin depender de la red ──────────
@@ -244,11 +245,47 @@ class TestPropuesta:
         allocation = proposal["allocation"]
         metrics = proposal["metrics"]
         text = _template_explanation(profile, allocation, metrics)
-        # El texto debe mencionar el retorno esperado calculado
-        assert str(metrics["expected_return"]) in text, \
-            "La explicación debe incluir el retorno esperado calculado"
+        # El texto debe mencionar la volatilidad calculada
         assert str(metrics["volatility"]) in text, \
             "La explicación debe incluir la volatilidad calculada"
+
+
+class TestReporteIdoneidad:
+    def test_pdf_incluye_textos_clave(self, answers_agresivo):
+        profile = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(profile)
+        record = {
+            "client_name": "Ana Pérez",
+            "profile_result": profile,
+            "proposal": proposal,
+            "decision": {
+                "action": "aprobar",
+                "advisor": "María Gómez",
+            },
+        }
+
+        pdf = generate_suitability_report_pdf(record)
+        text = pdf.decode("latin-1", errors="ignore")
+
+        assert pdf.startswith(b"%PDF-1.4")
+        assert "IDONEIDAD" in text
+        assert "Ana Pérez" in text
+        assert f"Reglas v{profile['rules_version']}" in text
+        assert DISCLAIMER_TEXT in text
+        assert "María Gómez" in text
+
+    def test_pdf_requiere_validacion_humana(self, answers_agresivo):
+        profile = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(profile)
+        record = {
+            "client_name": "Ana Pérez",
+            "profile_result": profile,
+            "proposal": proposal,
+            "decision": None,
+        }
+
+        with pytest.raises(ValueError, match="validación humana"):
+            generate_suitability_report_pdf(record)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -10,7 +10,7 @@ import json
 import os
 import time
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime, timezone
 
 TTL_SECONDS = 300
@@ -34,6 +34,7 @@ SNAPSHOT = {
 }
 
 _cache: dict = {"ts": 0.0, "payload": None}
+_executor = ThreadPoolExecutor(max_workers=16)
 
 
 def get_cached_payload() -> dict | None:
