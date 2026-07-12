@@ -15,8 +15,8 @@ export default function MarketContextCard({ marketContext }) {
   const { signals = {}, narrative, source } = marketContext
   const growingInPort = signals.growing_in_portfolio || []
   const themes = signals.active_themes || []
-  const bySource = source && source.startsWith('gemini')
-    ? { label: 'IA · Gemini', tone: 'chip-green' }
+  const bySource = source && source.startsWith('deepseek')
+    ? { label: 'IA · DeepSeek', tone: 'chip-green' }
     : { label: 'IA · alineación', tone: 'chip-neutral' }
 
   return (

@@ -260,7 +260,7 @@ Este documento explica **qué** se cambió, **por qué** y **en qué archivos**.
 
 ## §7 · Alineación IA de la propuesta con noticias + mercado
 
-- **Qué:** al generar la propuesta, un agente IA (**Google Gemini**, con fallback
+- **Qué:** al generar la propuesta, un agente IA (**DeepSeek**, con fallback
   determinístico) produce un **Contexto de mercado** que alinea la propuesta con las
   condiciones de hoy: qué instrumentos del portafolio están subiendo (datos reales de
   Yahoo Finance) y qué temas dominan los titulares. Se muestra en la propuesta del cliente
@@ -268,10 +268,10 @@ Este documento explica **qué** se cambió, **por qué** y **en qué archivos**.
 - **Guardrails respetados:** el LLM **solo narra**; no cambia pesos, no inventa tickers
   (verificador extendido para rechazar tickers fuera de catálogo) ni promete rentabilidad.
   Cualquier ajuste sigue pasando por el asesor humano (HITL).
-- **Activación:** define `GEMINI_API_KEY` (y opcional `GEMINI_MODEL`, por defecto
-  `gemini-2.0-flash`) en el backend; sin key usa la narrativa determinística basada en las
-  mismas señales verificables. Migrado de Anthropic Claude a Gemini para el reto del
-  patrocinador 'Best Use of Google Gemini'.
+- **Activación:** define `DEEPSEEK_API_KEY` (y opcional `DEEPSEEK_MODEL`, por defecto
+  `deepseek-chat`) en el backend; sin key usa la narrativa determinística basada en las
+  mismas señales verificables. Migrado de Anthropic Claude a DeepSeek para el reto del
+  patrocinador 'Best Use of DeepSeek'.
 - **Backend:** `backend/app/agents/inversiones_ia.py` (`_build_market_context`,
   `_market_narrative`, `_try_llm_market_context`, verificador extendido) y
   `backend/app/main.py` (inyecta market + news en `build_proposal`).

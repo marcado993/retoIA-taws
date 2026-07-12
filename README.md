@@ -2,12 +2,16 @@
 
 Robo-advisory con dos agentes IA y **asesor humano como responsable final** (human-in-the-loop).
 Analizador IA de noticias financieras + mercado en tiempo real para alertas contextuales.
+**Memoria del cliente**: si vuelve a diagnosticarse, el agente recuerda su historial
+(cifras leídas del store, nunca generadas por el LLM — continuidad sin alucinación).
 Accesibilidad **WCAG 2.1 AA** completa.
 
 - 📐 [ARCHITECTURE.md](ARCHITECTURE.md) — arquitectura multi-agente con núcleo determinístico.
 - 📋 [REGLAS.md](REGLAS.md) — reglas versionadas para aprobar / editar / rechazar propuestas.
 - 🎯 [HEURISTICAS.md](HEURISTICAS.md) — capa de heurísticas de Nielsen aplicada al sistema.
 - 📄 [DOCUMENTO_EXPLICATIVO.md](DOCUMENTO_EXPLICATIVO.md) — arquitectura, track, negocio e integración empresarial.
+  Incluye §11 con el **mapeo explícito a los criterios de evaluación del hackathon**
+  (viabilidad técnica, impacto/track, antialucinación, demo, evidencia de pruebas).
 
 Datos de mercado: cotizaciones en vivo de **Yahoo Finance** (sin API key) con caché de
 5 minutos y fallback a snapshot diferido para demo sin conexión (`backend/app/market_data.py`).
@@ -53,8 +57,9 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --port 8000 --reload
 ```
 
-Opcional: `set GEMINI_API_KEY=...` para que **Google Gemini** redacte las explicaciones
-y el contexto de mercado (modelo configurable con `GEMINI_MODEL`, por defecto `gemini-2.0-flash`).
+Opcional: `set DEEPSEEK_API_KEY=...` para que **DeepSeek** redacte las explicaciones
+y el contexto de mercado (modelo configurable con `DEEPSEEK_MODEL`, por defecto
+`deepseek-v4-flash` — el más económico de la API, pensado para operar con presupuesto mínimo).
 Sin key, usa la plantilla determinística con verificación anti-alucinación — la demo funciona igual.
 
 ### Frontend (puerto 3000)
@@ -75,8 +80,11 @@ pip install pytest
 python -m pytest tests/test_agents.py -v
 ```
 
-21 tests que cubren: scoring determinístico, knockouts de protección, propuesta de portafolio,
-verificador anti-alucinación del LLM, y gate HITL de estado "pendiente".
+**52 tests** que cubren: scoring determinístico, knockouts de protección, propuesta de
+portafolio, verificador anti-alucinación del LLM (mocks de la API de DeepSeek — no
+depende de su disponibilidad), diversificación mínima §3.4, gate HITL de estado
+"pendiente" y **memoria del cliente** (`TestMemoriaCliente`: historial entre diagnósticos,
+cálculo determinístico del delta de score — nunca pasa por el LLM).
 
 ### Pruebas e2e (Playwright)
 
@@ -88,8 +96,10 @@ npm run test:e2e
 
 Playwright levanta solo ambos servidores (backend con BD temporal vía `ROBO_DB_PATH`,
 así los tests no ensucian los datos de la demo). Los puertos 8000/3000 deben estar libres.
-7 specs en `frontend/e2e/`: perfil transparente, knockout de protección, aprobación
-auditada, validaciones de rechazo/edición, y reglas visibles.
+**14 specs** en `frontend/e2e/`: landing/CTA, perfil transparente, guía de campos con
+regex, knockout de protección, comparación de portafolios, meta financiera, análisis IA,
+reglas visibles, memoria del cliente entre diagnósticos, diversificación mínima §3.4,
+aprobación auditada, validaciones de rechazo/edición, y separación de rol cliente/asesor.
 
 ## Flujo de demo (extremo a extremo)
 

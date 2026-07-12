@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react'
 import Treemap from './Treemap.jsx'
 import SlideOver from './SlideOver.jsx'
 import Button from '../atoms/Button.jsx'
+import Chip from '../atoms/Chip.jsx'
 import MetricTile from '../molecules/MetricTile.jsx'
 import CtaNudge from '../molecules/CtaNudge.jsx'
+import AiInsightSkeleton from '../molecules/AiInsightSkeleton.jsx'
 
 // ── SVG Icon Library ──────────────────────────────────────────────────────
 const RobotIcon = () => (
@@ -40,8 +42,11 @@ const InfoIcon = () => (
 // no texto — resuelve la queja de que HU2 "no se ve" en ningún lado.
 export default function AiInsightPanel({ insight, news, onRefresh, loading, record, market, onGoDashboard }) {
   const [expanded, setExpanded] = useState(true)
-  const [newsExpanded, setNewsExpanded] = useState(false)
-  const [contextExpanded, setContextExpanded] = useState(false)
+  // Abiertos por defecto: la columna lateral (contexto + noticias) se veía
+  // vacía/angosta junto a las alertas mientras estuvieran colapsados detrás de
+  // un toggle — al abrirlos de entrada se aprovecha el espacio disponible.
+  const [newsExpanded, setNewsExpanded] = useState(true)
+  const [contextExpanded, setContextExpanded] = useState(true)
   const [reportOpen, setReportOpen] = useState(false)
 
   const handleRefresh = useCallback(() => {
@@ -87,16 +92,19 @@ export default function AiInsightPanel({ insight, news, onRefresh, loading, reco
 
       {expanded && (
         <div id="ai-insight-body" className="ai-panel-body">
-          {loading && (
-            <div className="ai-loading" role="status" aria-label="Cargando análisis de IA">
-              <div className="ai-loading-dots" aria-hidden="true"><span /><span /><span /></div>
-              <span className="ai-loading-text">Analizando noticias y cotizaciones…</span>
-            </div>
-          )}
+          {loading && <AiInsightSkeleton />}
 
           {insight && !loading && (
             <>
-              <p className="ai-summary" role="status">{insight.summary}</p>
+              <div className="ai-summary-wrap">
+                <p className="ai-summary" role="status">{insight.summary}</p>
+                {/* Trazabilidad: mismo patrón que MarketContextCard y "Modelo de IA" del
+                    reporte — quién redactó el texto, siempre visible junto al resultado. */}
+                <Chip tone={insight.summary_source?.startsWith('deepseek') ? 'green' : 'neutral'}
+                  className="ai-summary-badge" data-testid="ai-summary-source">
+                  {insight.summary_source?.startsWith('deepseek') ? '✨ IA · DeepSeek' : 'Análisis determinístico'}
+                </Chip>
+              </div>
 
               {/* HU2 + trazabilidad: un botón explícito "Generar" abre el reporte completo
                   (propuesta, noticias que lo respaldan y qué modelo lo redactó) en vez de
@@ -114,104 +122,119 @@ export default function AiInsightPanel({ insight, news, onRefresh, loading, reco
                 </div>
               )}
 
-              {insight.alerts?.length > 0 && (
-                <div className="ai-alerts" role="list" aria-label="Alertas del analizador IA">
-                  {insight.alerts.map((alert, i) => <AlertCard key={i} alert={alert} />)}
-                </div>
-              )}
-
-              {insight.adjustments?.length > 0 && (
-                <div className="ai-adjustments" aria-label="Ajustes sugeridos de portafolio">
-                  <h3 className="ai-sub-heading">Ajustes sugeridos por la IA</h3>
-                  <ul className="ai-adj-list">
-                    {insight.adjustments.map((adj, i) => (
-                      <li key={i} className="ai-adj-item"><DocIcon /> {adj}</li>
-                    ))}
-                  </ul>
-                  <p className="ai-disclaimer">
-                    Sugerencias orientativas basadas en las noticias analizadas. No constituyen órdenes directas.
-                  </p>
-                </div>
-              )}
-
-              {/* Contexto (colapsado por defecto): por qué la IA piensa esto —
-                  <details> nativo, sin JS de pestañas, accesible por teclado de fábrica. */}
-              <details className="ai-context" open={contextExpanded}
-                onToggle={e => setContextExpanded(e.target.open)}>
-                <summary className="ai-context-summary">
-                  Contexto: estado de ánimo del mercado y principios de inversión
-                </summary>
-                <div className="ai-context-body">
-                  {insight.market_mood && (
-                    <div className="mood-card">
-                      <span className={`mood-badge mood-${insight.market_mood.mood.toLowerCase()}`}>
-                        {insight.market_mood.mood}
-                      </span>
-                      <span className="mood-detail">
-                        {insight.market_mood.pos_pct}% de las noticias positivas ·{' '}
-                        {insight.market_mood.neg_pct}% negativas · temas: {insight.market_mood.topics.join(', ')}
-                      </span>
+              {/* Grid de 2 columnas en pantallas anchas (tablet horizontal / split-screen
+                  en adelante): lo accionable (alertas, ajustes) a la izquierda y el
+                  contexto de apoyo (estado del mercado, principios, noticias) a la
+                  derecha — en vez de apilar todo en una columna larga que obligaba a
+                  un scroll considerable para llegar a las noticias. */}
+              <div className="ai-panel-grid">
+                <div className="ai-panel-main">
+                  {insight.alerts?.length > 0 && (
+                    <div className="ai-alerts" role="list" aria-label="Alertas del analizador IA">
+                      {insight.alerts.map((alert, i) => <AlertCard key={i} alert={alert} />)}
                     </div>
                   )}
 
-                  {insight.investor_tips?.length > 0 && (
-                    <div className="investor-tips-list">
-                      {insight.investor_tips.map((tip, i) => (
-                        <div key={i} className="investor-tip-card">
-                          <div className="investor-header">
-                            <span className="investor-name">{tip.investor}</span>
-                            <span className="investor-strategy-tag">{tip.strategy}</span>
-                          </div>
-                          <p className="investor-quote">{tip.principle}</p>
-                          <p className="investor-rec">{tip.context}</p>
+                  {insight.adjustments?.length > 0 && (
+                    <div className="ai-adjustments" aria-label="Ajustes sugeridos de portafolio">
+                      <h3 className="ai-sub-heading">Ajustes sugeridos por la IA</h3>
+                      <ul className="ai-adj-list">
+                        {insight.adjustments.map((adj, i) => (
+                          <li key={i} className="ai-adj-item"><DocIcon /> {adj}</li>
+                        ))}
+                      </ul>
+                      <p className="ai-disclaimer">
+                        Sugerencias orientativas basadas en las noticias analizadas. No constituyen órdenes directas.
+                      </p>
+                    </div>
+                  )}
+
+                  {!(insight.alerts?.length > 0) && !(insight.adjustments?.length > 0) && (
+                    <p className="ai-panel-empty-hint">
+                      Sin alertas ni ajustes sugeridos en este ciclo de noticias — mercado en calma relativa.
+                    </p>
+                  )}
+                </div>
+
+                <div className="ai-panel-side">
+                  {/* Contexto (colapsado por defecto): por qué la IA piensa esto —
+                      <details> nativo, sin JS de pestañas, accesible por teclado de fábrica. */}
+                  <details className="ai-context" open={contextExpanded}
+                    onToggle={e => setContextExpanded(e.target.open)}>
+                    <summary className="ai-context-summary">
+                      Contexto: estado de ánimo del mercado y principios de inversión
+                    </summary>
+                    <div className="ai-context-body">
+                      {insight.market_mood && (
+                        <div className="mood-card">
+                          <span className={`mood-badge mood-${insight.market_mood.mood.toLowerCase()}`}>
+                            {insight.market_mood.mood}
+                          </span>
+                          <span className="mood-detail">
+                            {insight.market_mood.pos_pct}% de las noticias positivas ·{' '}
+                            {insight.market_mood.neg_pct}% negativas · temas: {insight.market_mood.topics.join(', ')}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
 
-                  {insight.past_memories?.length > 0 && (
-                    <div className="memories-list">
-                      {insight.past_memories.map((mem, i) => (
-                        <div key={i} className={`memory-item-card ${mem.type}`}>
-                          <div className="memory-badge">
-                            {mem.type === 'error_evitado' ? 'ALERTA DE EVITACIÓN' : 'CONFIGURACIÓN PREFERIDA'}
-                          </div>
-                          <p className="memory-msg">{mem.message}</p>
+                      {insight.investor_tips?.length > 0 && (
+                        <div className="investor-tips-list">
+                          {insight.investor_tips.map((tip, i) => (
+                            <div key={i} className="investor-tip-card">
+                              <div className="investor-header">
+                                <span className="investor-name">{tip.investor}</span>
+                                <span className="investor-strategy-tag">{tip.strategy}</span>
+                              </div>
+                              <p className="investor-quote">{tip.principle}</p>
+                              <p className="investor-rec">{tip.context}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+
+                      {insight.past_memories?.length > 0 && (
+                        <div className="memories-list">
+                          {insight.past_memories.map((mem, i) => (
+                            <div key={i} className={`memory-item-card ${mem.type}`}>
+                              <div className="memory-badge">
+                                {mem.type === 'error_evitado' ? 'ALERTA DE EVITACIÓN' : 'CONFIGURACIÓN PREFERIDA'}
+                              </div>
+                              <p className="memory-msg">{mem.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+
+                  {news?.length > 0 && (
+                    <div className="ai-news-section">
+                      <button className="ai-news-toggle" onClick={() => setNewsExpanded(n => !n)}
+                        aria-expanded={newsExpanded} aria-controls="ai-news-list"
+                        aria-label={newsExpanded ? 'Ocultar noticias' : 'Mostrar noticias financieras'}>
+                        <NewsIcon />
+                        <span className="ml-1">Noticias financieras ({news.length})</span>
+                        <span className="ai-news-counts" aria-hidden="true">
+                          {posNews.length > 0 && <span className="nc-pos">+{posNews.length}</span>}
+                          {negNews.length > 0 && <span className="nc-neg">−{negNews.length}</span>}
+                          {neuNews.length > 0 && <span className="nc-neu">○{neuNews.length}</span>}
+                        </span>
+                        <span className="ai-news-arrow">{newsExpanded ? '▲' : '▼'}</span>
+                      </button>
+                      {newsExpanded && (
+                        <ul id="ai-news-list" className="ai-news-list" role="list">
+                          {news.map((item, i) => <NewsItem key={i} item={item} />)}
+                        </ul>
+                      )}
                     </div>
                   )}
                 </div>
-              </details>
+              </div>
+
+              <p className="ai-asof">
+                Actualizado: {new Date(insight.asof).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </>
-          )}
-
-          {news?.length > 0 && (
-            <div className="ai-news-section">
-              <button className="ai-news-toggle" onClick={() => setNewsExpanded(n => !n)}
-                aria-expanded={newsExpanded} aria-controls="ai-news-list"
-                aria-label={newsExpanded ? 'Ocultar noticias' : 'Mostrar noticias financieras'}>
-                <NewsIcon />
-                <span className="ml-1">Noticias financieras ({news.length})</span>
-                <span className="ai-news-counts" aria-hidden="true">
-                  {posNews.length > 0 && <span className="nc-pos">+{posNews.length}</span>}
-                  {negNews.length > 0 && <span className="nc-neg">−{negNews.length}</span>}
-                  {neuNews.length > 0 && <span className="nc-neu">○{neuNews.length}</span>}
-                </span>
-                <span className="ai-news-arrow">{newsExpanded ? '▲' : '▼'}</span>
-              </button>
-              {newsExpanded && (
-                <ul id="ai-news-list" className="ai-news-list" role="list">
-                  {news.map((item, i) => <NewsItem key={i} item={item} />)}
-                </ul>
-              )}
-            </div>
-          )}
-
-          {insight && (
-            <p className="ai-asof">
-              Actualizado: {new Date(insight.asof).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-            </p>
           )}
         </div>
       )}
@@ -298,8 +321,8 @@ function AnalysisReport({ record, insight, market }) {
           <li><strong>Inversiones IA</strong> — construye la asignación desde el catálogo aprobado
             (determinístico) y redacta la explicación con{' '}
             <span className="ai-model-badge">
-              {proposal.explanation_source && proposal.explanation_source.startsWith('gemini')
-                ? `Google Gemini (${proposal.explanation_source})`
+              {proposal.explanation_source && proposal.explanation_source.startsWith('deepseek')
+                ? `DeepSeek (${proposal.explanation_source})`
                 : 'plantilla determinística (sin LLM)'}
             </span>.</li>
           <li><strong>Análisis de mercado</strong> — noticias de RSS financiero real (con
@@ -331,17 +354,43 @@ function AlertCard({ alert }) {
 }
 
 // ── NewsItem ─────────────────────────────────────────────────────────────
+// Hace cuánto se publicó, en formato corto ("5m", "2h", "3d") — mismo lenguaje
+// visual que un feed de noticias real en vez de una marca de tiempo completa.
+function timeAgo(iso) {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (mins < 1) return 'ahora'
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h`
+  return `${Math.floor(hrs / 24)}d`
+}
+
+const SENTIMENT = {
+  positivo: { cls: 'news-pos', label: 'Positivo', icon: '📈' },
+  negativo: { cls: 'news-neg', label: 'Negativo', icon: '📉' },
+  neutro:   { cls: 'news-neu', label: 'Neutro',   icon: '📰' },
+}
+
+// Tarjeta de noticia (no una fila de texto plano): ícono de sentimiento a la
+// izquierda, etiqueta de tono, titular en negrita y fuente + antigüedad abajo
+// — mismo lenguaje visual que un feed editorial (imagen + tags + titular).
 function NewsItem({ item }) {
-  const sentClass = { positivo: 'news-pos', negativo: 'news-neg', neutro: 'news-neu' }[item.sentiment] || 'news-neu'
-  const sentLabel = { positivo: 'Sentimiento positivo', negativo: 'Sentimiento negativo', neutro: 'Sentimiento neutro' }[item.sentiment] || 'neutro'
+  const { cls, label, icon } = SENTIMENT[item.sentiment] || SENTIMENT.neutro
+  const hasLink = item.url && item.url !== '#'
+  const Wrapper = hasLink ? 'a' : 'div'
+  const wrapperProps = hasLink
+    ? { href: item.url, target: '_blank', rel: 'noopener noreferrer' }
+    : {}
   return (
-    <li role="listitem" className={`ai-news-item ${sentClass}`} aria-label={`${sentLabel} — ${item.title}`}>
-      <div className="ai-news-content">
-        {item.url && item.url !== '#'
-          ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="ai-news-title">{item.title}</a>
-          : <span className="ai-news-title">{item.title}</span>}
-        <span className="ai-news-source">{item.source}</span>
-      </div>
+    <li role="listitem" className={`news-card ${cls}`} aria-label={`Sentimiento ${label} — ${item.title}`}>
+      <Wrapper className="news-card-link" {...wrapperProps}>
+        <span className="news-card-icon" aria-hidden="true">{icon}</span>
+        <div className="news-card-body">
+          <span className="news-card-tag">{label}</span>
+          <h4 className="news-card-title">{item.title}</h4>
+          <span className="news-card-meta">{item.source} · {timeAgo(item.ts)}</span>
+        </div>
+      </Wrapper>
     </li>
   )
 }

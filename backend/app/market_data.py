@@ -81,30 +81,32 @@ def get_quotes_payload(tickers: list[str]) -> dict:
 
     quotes = {}
     live = 0
-    network_down = offline
 
-    futures = {}
-    done = set()
-    if not network_down:
+    if offline:
         for t in tickers:
-            futures[t] = _executor.submit(_fetch_yahoo, t)
-        done, _ = wait(futures.values(), timeout=FETCH_BUDGET_SECONDS)
-
-    for t in tickers:
-        snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
-        if network_down or t not in futures:
+            snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
             quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
-            continue
-
-        fut = futures[t]
-        if fut in done and not fut.cancelled():
+    else:
+        from concurrent.futures import as_completed, TimeoutError as FuturesTimeout
+        futures = {}
+        with ThreadPoolExecutor(max_workers=len(tickers)) as pool:
+            for t in tickers:
+                futures[pool.submit(_fetch_yahoo, t)] = t
             try:
-                quotes[t] = fut.result()
-                live += 1
-            except Exception:
+                for fut in as_completed(futures, timeout=FETCH_BUDGET_SECONDS):
+                    ticker = futures[fut]
+                    try:
+                        quotes[ticker] = fut.result()
+                        live += 1
+                    except Exception:
+                        snap = SNAPSHOT.get(ticker, {"price": None, "change_pct": None})
+                        quotes[ticker] = {**snap, "currency": "USD", "source": "snapshot"}
+            except FuturesTimeout:
+                pass
+        for t in tickers:
+            if t not in quotes:
+                snap = SNAPSHOT.get(t, {"price": None, "change_pct": None})
                 quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
-        else:
-            quotes[t] = {**snap, "currency": "USD", "source": "snapshot"}
 
     payload = {
         "asof": datetime.now(timezone.utc).isoformat(),

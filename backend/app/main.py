@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-# Carga backend/.env (GEMINI_API_KEY, etc.) hacia os.environ. `override=False`
+# Carga backend/.env (DEEPSEEK_API_KEY, etc.) hacia os.environ. `override=False`
 # respeta variables ya definidas por el entorno (p. ej. los e2e las fijan vacías
 # para no llamar a la API real). Opcional: si no está python-dotenv, se ignora.
 try:
@@ -105,7 +105,11 @@ def create_proposal(req: ProfileRequest):
     # market/news son None y el market_context degrada con gracia (queda None).
     market = market_data.get_cached_payload()
     news = news_scraper.get_cached_news()
-    proposal = inversiones_ia.build_proposal(profile_result, goal=goal, market=market, news=news)
+    # Memoria del agente: si este cliente ya se diagnosticó antes, el agente
+    # lo recuerda — no repite el flujo desde cero (continuidad de la conversación).
+    client_history = store.get_client_history(req.client_name)
+    proposal = inversiones_ia.build_proposal(
+        profile_result, goal=goal, market=market, news=news, client_history=client_history)
     return store.create_proposal(req.client_name, profile_result, proposal)
 
 
@@ -211,8 +215,21 @@ def ai_insight(profile: str | None = None):
         cached = market_data.get_cached_payload()
         quotes = cached.get("quotes", {}) if cached else {}
     try:
-        return news_scraper.build_ai_insight(profile, noticias, quotes)
+        result = news_scraper.build_ai_insight(profile, noticias, quotes)
     except Exception:
         logging.getLogger("invertia").exception("Fallo construyendo el insight de IA")
         # Último recurso: insight mínimo válido (sin alertas) para no romper la UI.
-        return news_scraper.build_ai_insight(profile, [], {})
+        result = news_scraper.build_ai_insight(profile, [], {})
+    # G6 (mitigación de alucinaciones): si DeepSeek narró el resumen y el
+    # verificador lo rechazó, deja evidencia en el mismo log de auditoría que
+    # usan las propuestas — sin proposal_id porque este análisis no pertenece
+    # a una propuesta concreta.
+    for ev in result.get("guardrail_events", []):
+        store.add_audit(
+            "antialucinacion_rechazo",
+            f"verificador:{ev.get('agent', 'anti-alucinacion')}",
+            "analisis-mercado",
+            "n/d",
+            f"Salida del LLM descartada — {ev.get('reason', '')}. Fragmento: «{ev.get('snippet', '')}»",
+        )
+    return result

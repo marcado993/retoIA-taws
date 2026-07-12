@@ -307,7 +307,8 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
         # Si falla por inicialización, continuar
         pass
 
-    # Resumen general
+    # Resumen general (plantilla determinística — fallback si DeepSeek no está
+    # disponible o el verificador anti-alucinación rechaza su salida).
     if not alerts:
         if pos_pct >= 0.5:
             summary = "El sentimiento de mercado es mayormente positivo. El portafolio actual está bien posicionado según las noticias recientes."
@@ -318,6 +319,18 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
     else:
         summary = "Hay señales moderadas de riesgo u oportunidad. Lee las alertas y evalúa con tu asesor."
 
+    # Capa narrativa con DeepSeek: redacta el resumen en prosa a partir de
+    # las señales YA calculadas arriba (mood, temas, cotizaciones) — nunca
+    # decide alertas ni ajustes, esos siguen siendo 100% determinísticos.
+    # Import perezoso: evita un ciclo de import a nivel de módulo con
+    # inversiones_ia (que a su vez importa news_scraper de forma perezosa).
+    from app.agents import inversiones_ia
+    guardrail_events: list = []
+    llm_summary, summary_source, insight_events = inversiones_ia.build_market_insight_narrative(
+        profile_label, quotes, market_mood, themes)
+    guardrail_events.extend(insight_events)
+    if llm_summary:
+        summary = llm_summary
 
     # Cotizaciones relevantes como contexto
     mkt_ctx = []
@@ -328,6 +341,7 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
 
     return {
         "summary":           summary,
+        "summary_source":    summary_source,
         "alerts":            alerts,
         "adjustments":       adjustments,
         "market_ctx":        mkt_ctx[:6],
@@ -338,5 +352,6 @@ def build_ai_insight(profile_label: str | None, news: list[dict], quotes: dict) 
         "supporting_news":   supporting_news[:6],
         "market_mood":       market_mood,
         "past_memories":     past_memories,
+        "guardrail_events":  guardrail_events,
         "asof":              datetime.now(timezone.utc).isoformat(),
     }

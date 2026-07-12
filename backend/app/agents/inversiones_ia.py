@@ -4,8 +4,8 @@ Genera una propuesta de portafolio EXPLICABLE a partir del perfil calculado.
 Arquitectura "deterministic core + narrative layer":
   - Los números (asignación, riesgo, retorno esperado) salen SIEMPRE del
     catálogo aprobado y de los portafolios modelo — nunca del LLM.
-  - La capa narrativa redacta la explicación legible con **Google Gemini**
-    (variable de entorno `GEMINI_API_KEY`). Si no hay key o la API falla, se usa
+  - La capa narrativa redacta la explicación legible con **DeepSeek**
+    (variable de entorno `DEEPSEEK_API_KEY`). Si no hay key o la API falla, se usa
     una plantilla determinística para que la demo funcione de extremo a extremo.
 El agente NO ejecuta órdenes ni promete rentabilidad.
 """
@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -87,6 +88,7 @@ def build_proposal(
     goal: dict | None = None,
     market: dict | None = None,
     news: list | None = None,
+    client_history: list | None = None,
 ) -> dict:
     """Construye la asignación desde el portafolio modelo del catálogo
     y calcula métricas agregadas de forma determinística.
@@ -95,7 +97,11 @@ def build_proposal(
     `market_context` que ALINEA la propuesta con las condiciones actuales: qué
     instrumentos del portafolio están creciendo hoy y qué temas dominan los
     titulares. Es solo contexto narrativo — NO cambia pesos ni ejecuta nada
-    (los ajustes los decide el asesor humano)."""
+    (los ajustes los decide el asesor humano).
+
+    Si `client_history` trae diagnósticos previos del MISMO cliente, se agrega
+    `client_memory`: el agente recuerda su puntaje/perfil/decisión anteriores
+    (continuidad de la conversación), 100% determinístico — no depende del LLM."""
     catalog = load_catalog()
     profile_id = profile_result["profile"]["id"]
     model = catalog["model_portfolios"][profile_id]
@@ -120,7 +126,9 @@ def build_proposal(
         "diversification": len(allocation),
     }
     goal_fit = _compute_goal_fit(goal, metrics)
-    explanation, explanation_source, exp_events = _explain(profile_result, allocation, metrics)
+    client_memory = _compute_client_memory(client_history, profile_result)
+    explanation, explanation_source, exp_events = _explain(
+        profile_result, allocation, metrics, client_memory)
     market_context, mc_events = _build_market_context(
         profile_result, allocation, metrics, market, news)
 
@@ -130,12 +138,38 @@ def build_proposal(
         "allocation": allocation,
         "metrics": metrics,
         "goal_fit": goal_fit,
+        "client_memory": client_memory,
         "explanation": explanation,
         "explanation_source": explanation_source,
         "market_context": market_context,
         # Evidencia de mitigación de alucinaciones: rechazos del verificador (si los hubo).
         "guardrail_events": exp_events + mc_events,
         "disclaimer": DISCLAIMER,
+    }
+
+
+def _compute_client_memory(client_history: list | None, profile_result: dict) -> dict | None:
+    """Memoria determinística: qué recuerda el agente de este cliente. Ningún
+    número aquí sale de un LLM — se lee directo del historial guardado, así
+    que es imposible que la IA "invente" un diagnóstico anterior."""
+    if not client_history:
+        return None
+
+    last = client_history[0]
+    last_score = last["profile_result"]["score"]
+    last_profile = last["profile_result"]["profile"]["label"]
+    current_score = profile_result["score"]
+    decision = last.get("decision")
+
+    return {
+        "previous_count": len(client_history),
+        "last_score": last_score,
+        "last_profile": last_profile,
+        "last_created_at": last["created_at"],
+        "score_delta": current_score - last_score,
+        "last_status": last["status"],
+        "last_decision_advisor": decision.get("advisor") if decision else None,
+        "last_decision_notes": decision.get("notes") if decision else None,
     }
 
 
@@ -176,22 +210,27 @@ def _compute_goal_fit(goal: dict | None, metrics: dict) -> dict | None:
     }
 
 
-def _explain(profile_result: dict, allocation: list, metrics: dict) -> tuple[str, str, list]:
+def _explain(profile_result: dict, allocation: list, metrics: dict,
+             client_memory: dict | None = None) -> tuple[str, str, list]:
     """Devuelve (texto, fuente, eventos) — la fuente se muestra al usuario para que
     sepa exactamente qué generó la explicación, y `eventos` lista los rechazos del
-    verificador anti-alucinación (evidencia de mitigación de riesgos)."""
+    verificador anti-alucinación (evidencia de mitigación de riesgos).
+
+    `client_memory` NO se le pasa al LLM (se mantiene 100% determinístico para
+    que sea imposible que la IA invente un diagnóstico anterior) — solo se usa
+    en la plantilla de respaldo y se expone aparte para el frontend."""
     events: list = []
     llm_text = _try_llm_explanation(profile_result, allocation, metrics)
     if llm_text:
         # CA-3g: Capa de verificación anti-alucinación
         is_valid, reason = _verify_llm_output(llm_text, metrics)
         if is_valid:
-            return llm_text, _gemini_model(), events
+            return llm_text, _deepseek_model(), events
         # LLM alucinado → registra evidencia + fallback determinístico
         ev = _guardrail_event("inversiones-ia:explicacion", reason, llm_text)
         _log_guardrail(ev)
         events.append(ev)
-    return _template_explanation(profile_result, allocation, metrics), "plantilla-determinista", events
+    return _template_explanation(profile_result, allocation, metrics, client_memory), "plantilla-determinista", events
 
 
 def _verify_llm_output(text: str, metrics: dict, extra_allowed: list | None = None) -> tuple[bool, str]:
@@ -299,7 +338,7 @@ def _build_market_context(profile_result: dict, allocation: list, metrics: dict,
 
 def _market_narrative(profile_result: dict, allocation: list, metrics: dict,
                       signals: dict) -> tuple[str, str, list]:
-    """Narrativa IA (Gemini) con verificación anti-alucinación y fallback
+    """Narrativa IA (DeepSeek) con verificación anti-alucinación y fallback
     determinístico. El LLM solo narra la alineación; nunca cambia pesos, inventa
     tickers fuera del catálogo ni promete rentabilidad. Devuelve (texto, fuente, eventos)."""
     events: list = []
@@ -308,7 +347,7 @@ def _market_narrative(profile_result: dict, allocation: list, metrics: dict,
         extra = [g["change_pct"] for g in signals["growing"]]
         ok, reason = _verify_llm_output(llm_text, metrics, extra_allowed=extra)
         if ok and _tickers_within_catalog(llm_text):
-            return llm_text, _gemini_model(), events
+            return llm_text, _deepseek_model(), events
         final_reason = reason or "ticker fuera del catálogo aprobado"
         ev = _guardrail_event("inversiones-ia:contexto-mercado", final_reason, llm_text)
         _log_guardrail(ev)
@@ -365,28 +404,35 @@ def _template_market_context(profile_result: dict, allocation: list, signals: di
 
 def _try_llm_market_context(profile_result: dict, allocation: list, metrics: dict,
                             signals: dict) -> str | None:
-    """Capa narrativa opcional con Gemini para el contexto de mercado."""
+    """Capa narrativa opcional con DeepSeek para el contexto de mercado."""
     growing = [{"ticker": g["ticker"], "cambio_pct": g["change_pct"],
                 "en_portafolio": g["in_portfolio"]} for g in signals["growing"]]
     themes = [_THEME_LABELS.get(t, t) for t in signals["active_themes"]]
     prompt = (
         "Eres el agente Inversiones IA. En 2-3 frases y en español claro, explica "
         "cómo las condiciones de mercado y noticias de HOY se relacionan con ESTA "
-        "propuesta de portafolio, para mostrar que está alineada. Reglas estrictas: "
-        "(1) usa SOLO los tickers listados, no inventes instrumentos; "
-        "(2) NO cambies ni sugieras pesos nuevos; "
-        "(3) NO prometas rentabilidad ni uses la palabra 'garantiza'; "
-        "(4) usa solo las cifras % provistas. Aclara que cualquier ajuste lo decide "
-        "el asesor humano.\n"
+        "propuesta de portafolio, para mostrar que está alineada con la tendencia "
+        "actual. Reglas estrictas: "
+        "(1) básate ÚNICAMENTE en los movimientos y temas de noticias listados "
+        "abajo — no opines sobre mercados o instrumentos que no aparezcan ahí; "
+        "(2) menciona explícitamente al menos un ticker o tema de los provistos, "
+        "no des una explicación genérica que ignore los datos de hoy; "
+        "(3) usa SOLO los tickers listados, no inventes instrumentos; "
+        "(4) NO cambies ni sugieras pesos nuevos; "
+        "(5) NO prometas rentabilidad ni uses la palabra 'garantiza'; "
+        "(6) usa solo las cifras % provistas. Aclara que cualquier ajuste lo decide "
+        "el asesor humano. Si no hay movimientos ni temas relevantes, dilo "
+        "explícitamente en vez de improvisar.\n"
         f"Perfil del cliente: {profile_result['profile']['label']}\n"
         f"Instrumentos del portafolio: {json.dumps([a['ticker'] for a in allocation])}\n"
         f"Instrumentos que suben hoy: {json.dumps(growing, ensure_ascii=False)}\n"
         f"Temas en las noticias: {json.dumps(themes, ensure_ascii=False)}"
     )
-    return _call_gemini(prompt, max_tokens=320)
+    return _call_deepseek(prompt, max_tokens=260)
 
 
-def _template_explanation(profile_result: dict, allocation: list, metrics: dict) -> str:
+def _template_explanation(profile_result: dict, allocation: list, metrics: dict,
+                          client_memory: dict | None = None) -> str:
     profile = profile_result["profile"]
     fixed = sum(a["weight"] for a in allocation if a["risk_level"] <= 2)
     equity = sum(a["weight"] for a in allocation if a["risk_level"] >= 3)
@@ -404,6 +450,19 @@ def _template_explanation(profile_result: dict, allocation: list, metrics: dict)
         f"{metrics['diversification']} clases de activos busca amortiguar esas caídas.",
     ]
 
+    # Memoria del agente: reconoce diagnósticos previos del mismo cliente, con
+    # cifras leídas directo del historial (no inventadas) — continuidad de la
+    # conversación entre sesiones, no solo dentro de una misma sesión.
+    if client_memory:
+        delta = client_memory["score_delta"]
+        trend = "subió" if delta > 0 else ("bajó" if delta < 0 else "se mantuvo")
+        parts.append(
+            f"Te recuerdo: este es tu diagnóstico número {client_memory['previous_count'] + 1}. "
+            f"La última vez tu puntaje fue {client_memory['last_score']}/100 "
+            f"(perfil {client_memory['last_profile']}); ahora {trend} "
+            f"{'en ' + str(abs(delta)) + ' puntos' if delta != 0 else ''} a {profile_result['score']}/100."
+        )
+
     if profile_result.get("capped"):
         reasons = "; ".join(k["reason"] for k in profile_result["knockouts_applied"])
         parts.append(f"Importante: tu perfil fue limitado por una regla de protección. {reasons}")
@@ -411,62 +470,146 @@ def _template_explanation(profile_result: dict, allocation: list, metrics: dict)
 
 
 
-# ── Capa narrativa: Google Gemini (con fallback determinístico) ────────────────
+# ── Capa narrativa: DeepSeek (con fallback determinístico) ─────────────────────
+# API compatible con el formato de OpenAI (chat completions) — a diferencia de
+# Gemini original, la respuesta viene en `choices[0].message.content`, no en `candidates`.
 
-_GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
-
-
-def _gemini_model() -> str:
-    """Modelo Gemini a usar. Configurable por entorno; se usa además como etiqueta
-    de `explanation_source` para trazabilidad (qué generó cada texto)."""
-    return os.environ.get("GEMINI_MODEL", _GEMINI_DEFAULT_MODEL)
+_DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-flash"  # el modelo más económico — presupuesto ajustado
+_DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
 
-def _call_gemini(prompt: str, max_tokens: int = 400) -> str | None:
-    """Llama a la API REST de Google Gemini (generateContent). Devuelve el texto
-    generado o None si no hay `GEMINI_API_KEY` o la petición falla — así la demo
-    nunca se rompe y cae a la plantilla determinística.
+def _deepseek_model() -> str:
+    """Modelo DeepSeek a usar. Configurable por entorno; se usa además como
+    etiqueta de `explanation_source` para trazabilidad (qué generó cada texto)."""
+    return os.environ.get("DEEPSEEK_MODEL", _DEEPSEEK_DEFAULT_MODEL)
 
-    Reto del patrocinador 'Best Use of Google Gemini': esta es la única puerta de
-    entrada al LLM; todo el sistema narra a través de Gemini."""
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+_DEEPSEEK_TIMEOUT = 10
+_DEEPSEEK_RETRIES = 2
+
+
+def _call_deepseek(prompt: str, max_tokens: int = 400) -> str | None:
+    """Llama a la API de DeepSeek (chat completions, compatible con OpenAI).
+    Devuelve el texto generado o None si no hay `DEEPSEEK_API_KEY` o la
+    petición falla — así la demo nunca se rompe y cae a la plantilla
+    determinística.
+
+    Resiliencia: timeout explícito de 10 s y hasta 2 reintentos ante errores
+    transitorios (timeout, 429, 5xx). Si todos fallan, retorna None y el sistema
+    cae al fallback determinístico sin que el frontend colapse."""
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
     if not api_key:
         return None
-    try:
-        body = json.dumps({
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4},
-        }).encode()
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{_gemini_model()}:generateContent"
-        )
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={
-                "x-goog-api-key": api_key,
-                "content-type": "application/json",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            data = json.load(resp)
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return None  # la demo nunca se rompe: cae a la plantilla determinística
+
+    body = json.dumps({
+        "model": _deepseek_model(),
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": 0.4,
+        "stream": False,
+    }).encode()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    last_err: Exception | None = None
+    for attempt in range(_DEEPSEEK_RETRIES):
+        try:
+            req = urllib.request.Request(_DEEPSEEK_URL, data=body, headers=headers)
+            with urllib.request.urlopen(req, timeout=_DEEPSEEK_TIMEOUT) as resp:
+                data = json.load(resp)
+            return data["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            last_err = e
+            if e.code in (429, 500, 502, 503):
+                import time
+                time.sleep(min(1.0 * (attempt + 1), 3.0))
+                continue
+            break
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last_err = e
+            import time
+            time.sleep(min(1.0 * (attempt + 1), 3.0))
+            continue
+        except Exception:
+            break
+
+    if last_err:
+        logger.info("[DEEPSEEK] API falló tras %d intento(s): %s", _DEEPSEEK_RETRIES, last_err)
+    return None
 
 
 def _try_llm_explanation(profile_result: dict, allocation: list, metrics: dict) -> str | None:
-    """Capa narrativa opcional con Gemini. Solo redacta: recibe los números ya
+    """Capa narrativa opcional con DeepSeek. Solo redacta: recibe los números ya
     calculados y tiene prohibido inventar cifras o prometer rentabilidad."""
     prompt = (
         "Eres el agente Inversiones IA. Redacta en español, en un párrafo "
-        "claro para una persona sin conocimientos financieros, la explicación "
-        "de esta propuesta de portafolio. Usa EXACTAMENTE estas cifras, no "
-        "inventes números y no prometas rentabilidad.\n"
+        "breve y claro para una persona sin conocimientos financieros, la "
+        "explicación de esta propuesta de portafolio. Reglas estrictas: "
+        "(1) básate ÚNICAMENTE en los datos provistos abajo (perfil, puntaje, "
+        "asignación, métricas) — no uses conocimiento general de mercados ni "
+        "cifras externas; (2) usa EXACTAMENTE las cifras dadas, nunca "
+        "inventes números; (3) no prometas rentabilidad ni uses palabras como "
+        "'garantiza'; (4) sé conciso (máximo 4 frases).\n"
         f"Perfil: {json.dumps(profile_result['profile'], ensure_ascii=False)}\n"
         f"Puntaje: {profile_result['score']}/100, reglas v{profile_result['rules_version']}\n"
         f"Asignación: {json.dumps([{ 'nombre': a['name'], 'peso': a['weight'] } for a in allocation], ensure_ascii=False)}\n"
         f"Métricas: {json.dumps(metrics, ensure_ascii=False)}"
     )
-    return _call_gemini(prompt, max_tokens=500)
+    return _call_deepseek(prompt, max_tokens=280)
+
+
+# ── Narrativa IA para el Análisis de Mercado (pestaña "Diagnóstico de Riesgo") ──
+# Distinta de `_market_narrative`: esa alinea una PROPUESTA concreta con el
+# mercado; esta resume el estado GENERAL del mercado/noticias del día, sin
+# depender de que el cliente ya tenga una propuesta. Las alertas, ajustes
+# sugeridos y principios de inversión de esa pestaña siguen siendo 100%
+# determinísticos (news_scraper._classify_themes) — DeepSeek solo redacta el
+# resumen en prosa, con el mismo verificador anti-alucinación de siempre.
+
+def build_market_insight_narrative(profile_label: str | None, quotes: dict,
+                                    market_mood: dict, themes: dict) -> tuple[str | None, str, list]:
+    """Devuelve (texto o None, fuente, eventos). Texto None = "usa el resumen
+    determinístico existente" (fallback sin key, sin red, o verificador rechaza)."""
+    events: list = []
+    llm_text = _try_llm_insight_narrative(profile_label, quotes, market_mood, themes)
+    if llm_text:
+        extra = [q.get("change_pct") for q in (quotes or {}).values() if q.get("change_pct") is not None]
+        extra += [market_mood.get("pos_pct"), market_mood.get("neg_pct")]
+        ok, reason = _verify_llm_output(llm_text, {}, extra_allowed=extra)
+        if ok and _tickers_within_catalog(llm_text):
+            return llm_text, _deepseek_model(), events
+        ev = _guardrail_event("analisis-mercado:resumen", reason or "ticker fuera del catálogo aprobado", llm_text)
+        _log_guardrail(ev)
+        events.append(ev)
+    return None, "plantilla-determinista", events
+
+
+def _try_llm_insight_narrative(profile_label: str | None, quotes: dict,
+                                market_mood: dict, themes: dict) -> str | None:
+    theme_labels = [_THEME_LABELS.get(k, k) for k, active in (themes or {}).items() if active]
+    movers = [{"ticker": tk, "cambio_pct": q.get("change_pct")}
+              for tk, q in (quotes or {}).items() if q.get("change_pct") is not None]
+    prompt = (
+        "Eres el analista de mercado de InvertIA. En 2-3 frases y en español claro, "
+        "resume el estado del mercado y las tendencias de las noticias de HOY para "
+        "un inversionista"
+        + (f" con perfil {profile_label}" if profile_label else "") + ". Reglas estrictas: "
+        "(1) básate ÚNICAMENTE en el estado de ánimo, temas y cotizaciones "
+        "provistos abajo — no agregues opinión de mercado que no venga de esos "
+        "datos ni uses conocimiento externo/desactualizado; "
+        "(2) menciona explícitamente el tema o ticker más relevante de los "
+        "datos de hoy, no un resumen genérico; "
+        "(3) usa SOLO los tickers listados abajo, no inventes instrumentos; "
+        "(4) usa SOLO las cifras % provistas, no inventes números; "
+        "(5) NO prometas rentabilidad ni uses palabras como 'garantiza'; "
+        "(6) NO sugieras montos ni pesos de portafolio — eso ya lo calcula el "
+        "sistema por separado; (7) sé descriptivo del panorama, no prescriptivo.\n"
+        f"Estado de ánimo del mercado: {market_mood.get('mood', 'Neutral')} "
+        f"({market_mood.get('pos_pct', 0)}% de noticias positivas, "
+        f"{market_mood.get('neg_pct', 0)}% negativas)\n"
+        f"Temas activos en los titulares: {json.dumps(theme_labels, ensure_ascii=False)}\n"
+        f"Cotizaciones de hoy: {json.dumps(movers, ensure_ascii=False)}"
+    )
+    return _call_deepseek(prompt, max_tokens=220)

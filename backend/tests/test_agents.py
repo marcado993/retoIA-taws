@@ -25,13 +25,14 @@ from app.agents.inversiones_ia import _verify_llm_output, _template_explanation
 from app.pdf_report import DISCLAIMER_TEXT, generate_suitability_report_pdf
 
 
-# ── Utilidades para mockear la API de Gemini sin depender de la red ────────────
-def _gemini_payload(text: str) -> dict:
-    """Respuesta con la forma real de la API generateContent de Gemini."""
-    return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
+# ── Utilidades para mockear la API de DeepSeek sin depender de la red ──────────
+def _deepseek_payload(text: str) -> dict:
+    """Respuesta con la forma real de la API chat completions de DeepSeek
+    (compatible con el formato de OpenAI)."""
+    return {"choices": [{"message": {"content": text}}]}
 
 
-class _FakeGeminiResp:
+class _FakeDeepSeekResp:
     """Respuesta HTTP falsa usable como context manager (para json.load)."""
     def __init__(self, payload: dict):
         self._b = json.dumps(payload).encode()
@@ -404,52 +405,52 @@ class TestDiversificacion:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# C7: Integración Google Gemini con mocks (nivel intermedio) [Gap G5 / P1]
+# C7: Integración DeepSeek con mocks (nivel intermedio) [Gap G5 / P1]
 # ──────────────────────────────────────────────────────────────────────────────
 
-class TestGemini:
+class TestDeepSeek:
     """Requisito de pruebas (nivel intermedio): mock de la API del LLM para probar
     sin depender de su disponibilidad — camino feliz y fallback."""
 
-    def test_call_gemini_camino_feliz(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-        payload = _gemini_payload("Explicación de prueba con retorno 7.2%.")
+    def test_call_deepseek_camino_feliz(self, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+        payload = _deepseek_payload("Explicación de prueba con retorno 7.2%.")
         monkeypatch.setattr("urllib.request.urlopen",
-                            lambda *a, **k: _FakeGeminiResp(payload))
-        out = inversiones_ia._call_gemini("prompt de prueba")
+                            lambda *a, **k: _FakeDeepSeekResp(payload))
+        out = inversiones_ia._call_deepseek("prompt de prueba")
         assert out == "Explicación de prueba con retorno 7.2%."
 
-    def test_call_gemini_sin_key_devuelve_none(self, monkeypatch):
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    def test_call_deepseek_sin_key_devuelve_none(self, monkeypatch):
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         # No debe intentar red siquiera; si lo hiciera, fallaría el assert.
-        assert inversiones_ia._call_gemini("prompt") is None
+        assert inversiones_ia._call_deepseek("prompt") is None
 
-    def test_call_gemini_error_de_red_cae_a_none(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    def test_call_deepseek_error_de_red_cae_a_none(self, monkeypatch):
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
 
         def _boom(*a, **k):
             raise urllib.error.URLError("sin red")
 
         monkeypatch.setattr("urllib.request.urlopen", _boom)
-        assert inversiones_ia._call_gemini("prompt") is None
+        assert inversiones_ia._call_deepseek("prompt") is None
 
-    def test_explain_usa_gemini_cuando_es_valido(self, monkeypatch):
+    def test_explain_usa_deepseek_cuando_es_valido(self, monkeypatch):
         texto = "Tu retorno esperado simulado es 7.2% con una volatilidad de 12.5%."
-        monkeypatch.setattr(inversiones_ia, "_call_gemini", lambda *a, **k: texto)
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek", lambda *a, **k: texto)
         profile = {"profile": {"id": "moderado", "label": "Moderado", "description": "x"},
                    "score": 50, "rules_version": "1.0.0"}
         metrics = {"expected_return": 7.2, "volatility": 12.5, "risk_level": 3.0, "diversification": 4}
         alloc = [{"name": "SPY", "weight": 100, "risk_level": 4, "asset_class": "Renta variable EE.UU."}]
         text, source, events = inversiones_ia._explain(profile, alloc, metrics)
         assert text == texto
-        assert source.startswith("gemini"), f"source esperado gemini*, obtenido {source}"
+        assert source.startswith("deepseek"), f"source esperado deepseek*, obtenido {source}"
         assert events == [], "Una salida válida no genera eventos de guardrail"
 
-    def test_explain_cae_a_plantilla_si_gemini_alucina(self, monkeypatch):
-        # Gemini devuelve una promesa de rentabilidad → el verificador la rechaza
+    def test_explain_cae_a_plantilla_si_deepseek_alucina(self, monkeypatch):
+        # DeepSeek devuelve una promesa de rentabilidad → el verificador la rechaza
         # y el sistema cae a la plantilla determinística.
-        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
                             lambda *a, **k: "Retorno garantizado del 40% asegurado.")
         profile = {"profile": {"id": "agresivo", "label": "Agresivo", "description": "x"},
                    "score": 80, "rules_version": "1.0.0"}
@@ -458,10 +459,10 @@ class TestGemini:
         text, source, events = inversiones_ia._explain(profile, alloc, metrics)
         assert source == "plantilla-determinista"
 
-    def test_build_proposal_incluye_market_context_con_gemini(self, monkeypatch):
-        # Camino feliz de extremo a extremo: con Gemini mockeado y señales de mercado,
-        # la propuesta trae market_context con fuente gemini.
-        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+    def test_build_proposal_incluye_market_context_con_deepseek(self, monkeypatch):
+        # Camino feliz de extremo a extremo: con DeepSeek mockeado y señales de mercado,
+        # la propuesta trae market_context con fuente deepseek.
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
                             lambda *a, **k: "SPY sube hoy y respalda la propuesta; el asesor decide.")
         profile = asesor_financiero.evaluate_profile({
             "reaccion": "mantener", "objetivo": "balanceado", "horizonte": "medio",
@@ -472,33 +473,33 @@ class TestGemini:
         news = [{"title": "Rally tecnológico impulsa el Nasdaq", "sentiment": "positivo"}]
         prop = inversiones_ia.build_proposal(profile, market=market, news=news)
         assert prop["market_context"] is not None
-        assert prop["market_context"]["source"].startswith("gemini")
+        assert prop["market_context"]["source"].startswith("deepseek")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# C8: Casos de borde de la API de Gemini (robustez del cliente) [P3]
+# C8: Casos de borde de la API de DeepSeek (robustez del cliente) [P3]
 # ──────────────────────────────────────────────────────────────────────────────
 
-class TestGeminiCasosBorde:
+class TestDeepSeekCasosBorde:
     """Respuestas raras de la API no deben romper la demo: siempre caen a None y de
     ahí a la plantilla determinística."""
 
     def test_respuesta_sin_candidates_devuelve_none(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
         monkeypatch.setattr("urllib.request.urlopen",
-                            lambda *a, **k: _FakeGeminiResp({}))
-        assert inversiones_ia._call_gemini("prompt") is None
+                            lambda *a, **k: _FakeDeepSeekResp({}))
+        assert inversiones_ia._call_deepseek("prompt") is None
 
     def test_respuesta_bloqueada_por_seguridad_devuelve_none(self, monkeypatch):
-        # Gemini puede devolver un candidate sin `content` (finishReason SAFETY).
-        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        # DeepSeek puede devolver una respuesta sin `content` (finishReason SAFETY).
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
         payload = {"candidates": [{"finishReason": "SAFETY"}]}
         monkeypatch.setattr("urllib.request.urlopen",
-                            lambda *a, **k: _FakeGeminiResp(payload))
-        assert inversiones_ia._call_gemini("prompt") is None
+                            lambda *a, **k: _FakeDeepSeekResp(payload))
+        assert inversiones_ia._call_deepseek("prompt") is None
 
     def test_json_invalido_devuelve_none(self, monkeypatch):
-        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
 
         class _BadResp:
             def read(self, *a, **k):
@@ -509,11 +510,11 @@ class TestGeminiCasosBorde:
                 return False
 
         monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: _BadResp())
-        assert inversiones_ia._call_gemini("prompt") is None
+        assert inversiones_ia._call_deepseek("prompt") is None
 
-    def test_texto_vacio_de_gemini_cae_a_plantilla(self, monkeypatch):
+    def test_texto_vacio_de_deepseek_cae_a_plantilla(self, monkeypatch):
         # Un texto vacío del LLM se trata como ausencia de narrativa → plantilla.
-        monkeypatch.setattr(inversiones_ia, "_call_gemini", lambda *a, **k: "")
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek", lambda *a, **k: "")
         profile = {"profile": {"id": "moderado", "label": "Moderado", "description": "x"},
                    "score": 50, "rules_version": "1.0.0"}
         metrics = {"expected_return": 7.2, "volatility": 12.5, "risk_level": 3.0, "diversification": 4}
@@ -532,7 +533,7 @@ class TestAuditoriaAntialucinacion:
     en la propuesta y como entrada persistida en el log de auditoría."""
 
     def test_explain_registra_evento_al_alucinar(self, monkeypatch):
-        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
                             lambda *a, **k: "Retorno garantizado del 40% asegurado.")
         profile = {"profile": {"id": "agresivo", "label": "Agresivo", "description": "x"},
                    "score": 80, "rules_version": "1.0.0"}
@@ -546,8 +547,8 @@ class TestAuditoriaAntialucinacion:
         assert events[0]["snippet"]     # fragmento del texto descartado presente
 
     def test_market_context_rechaza_ticker_inventado(self, monkeypatch):
-        # Gemini menciona un ticker fuera del catálogo aprobado → se descarta.
-        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+        # DeepSeek menciona un ticker fuera del catálogo aprobado → se descarta.
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
                             lambda *a, **k: "El mercado favorece a NVDA hoy, que sube con fuerza.")
         profile = asesor_financiero.evaluate_profile({
             "reaccion": "mantener", "objetivo": "balanceado", "horizonte": "medio",
@@ -562,7 +563,7 @@ class TestAuditoriaAntialucinacion:
 
     def test_create_proposal_persiste_evento_en_auditoria(self, monkeypatch, tmp_path):
         from app import store
-        monkeypatch.setattr(inversiones_ia, "_call_gemini",
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
                             lambda *a, **k: "Rentabilidad garantizada del 30% asegurada.")
         monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
         monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
@@ -581,3 +582,148 @@ class TestAuditoriaAntialucinacion:
         rechazos = [a for a in audit if a["action"] == "antialucinacion_rechazo"]
         assert rechazos, "El rechazo debe quedar persistido en el log de auditoría"
         assert "descartada" in rechazos[0]["detail"].lower()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C10: DeepSeek en el Análisis de Mercado (pestaña "Diagnóstico de Riesgo")
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestAnalisisMercadoDeepSeek:
+    """El resumen de la pestaña Diagnóstico de Riesgo (news_scraper.build_ai_insight)
+    ahora tiene una capa narrativa DeepSeek además de las alertas 100% determinísticas.
+    Mismo contrato que el resto del sistema: verificador anti-alucinación + fallback."""
+
+    def _news_and_quotes(self):
+        from app import news_scraper
+        news = news_scraper._mock_news()
+        quotes = {"SPY": {"change_pct": 1.2}, "GLD": {"change_pct": -0.5}}
+        return news_scraper, news, quotes
+
+    def test_sin_key_usa_resumen_determinista(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert result["summary"]  # la plantilla siempre produce algo
+        assert result["guardrail_events"] == []
+
+    def test_deepseek_valido_reemplaza_el_resumen(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        texto = "SPY sube 1.2% hoy mientras GLD retrocede 0.5%; los titulares muestran un tono mixto."
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek", lambda *a, **k: texto)
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary"] == texto
+        assert result["summary_source"].startswith("deepseek")
+        assert result["guardrail_events"] == []
+
+    def test_deepseek_alucinado_cae_a_plantilla_y_registra_evento(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
+                            lambda *a, **k: "Este mercado garantiza ganancias del 50% este mes.")
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert len(result["guardrail_events"]) == 1
+        assert result["guardrail_events"][0]["agent"] == "analisis-mercado:resumen"
+
+    def test_deepseek_ticker_inventado_se_rechaza(self, monkeypatch):
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
+                            lambda *a, **k: "NVDA lidera las alzas del mercado hoy con fuerza inusual.")
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["summary_source"] == "plantilla-determinista"
+        assert len(result["guardrail_events"]) == 1
+
+    def test_evento_de_analisis_mercado_se_persiste_en_auditoria(self, monkeypatch, tmp_path):
+        from app import store
+        news_module, news, quotes = self._news_and_quotes()
+        monkeypatch.setattr(inversiones_ia, "_call_deepseek",
+                            lambda *a, **k: "Rentabilidad asegurada del 30% garantizada este trimestre.")
+        monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
+        monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
+
+        result = news_module.build_ai_insight("Moderado", news, quotes)
+        assert result["guardrail_events"]
+
+        for ev in result["guardrail_events"]:
+            store.add_audit("antialucinacion_rechazo", f"verificador:{ev['agent']}",
+                            "analisis-mercado", "n/d",
+                            f"Salida del LLM descartada — {ev['reason']}. Fragmento: «{ev['snippet']}»")
+        audit = store.audit_log()
+        rechazos = [a for a in audit if a["action"] == "antialucinacion_rechazo"]
+        assert rechazos
+        assert rechazos[0]["proposal_id"] == "analisis-mercado"
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# C11: Memoria del agente — continuidad entre diagnósticos del mismo cliente
+# ──────────────────────────────────────────────────────────────────────────────
+
+class TestMemoriaCliente:
+    """El agente recuerda diagnósticos previos del mismo cliente (por nombre).
+    100% determinístico: nunca depende del LLM, así que no puede "inventar"
+    un historial que no existe."""
+
+    def _isolated_store(self, monkeypatch, tmp_path):
+        from app import store
+        monkeypatch.setattr(store, "DB_PATH", tmp_path / "db.json")
+        monkeypatch.setattr(store, "_db", {"proposals": {}, "audit": []})
+        return store
+
+    def test_cliente_nuevo_no_tiene_historial(self, monkeypatch, tmp_path):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        assert store.get_client_history("Alguien Nuevo") == []
+
+    def test_historial_encuentra_diagnosticos_previos_sin_distinguir_mayusculas(
+            self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        profile_result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(profile_result)
+        store.create_proposal("Ana Torres", profile_result, proposal)
+
+        history = store.get_client_history("  ana torres  ")
+        assert len(history) == 1
+        assert history[0]["client_name"] == "Ana Torres"
+
+    def test_compute_client_memory_none_sin_historial(self, answers_agresivo):
+        profile_result = asesor_financiero.evaluate_profile(answers_agresivo)
+        assert inversiones_ia._compute_client_memory(None, profile_result) is None
+        assert inversiones_ia._compute_client_memory([], profile_result) is None
+
+    def test_compute_client_memory_calcula_delta_de_score(
+            self, monkeypatch, tmp_path, answers_conservador, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        first_result = asesor_financiero.evaluate_profile(answers_conservador)
+        first_proposal = inversiones_ia.build_proposal(first_result)
+        store.create_proposal("Beto Salas", first_result, first_proposal)
+
+        history = store.get_client_history("Beto Salas")
+        second_result = asesor_financiero.evaluate_profile(answers_agresivo)
+        memory = inversiones_ia._compute_client_memory(history, second_result)
+
+        assert memory["previous_count"] == 1
+        assert memory["last_score"] == first_result["score"]
+        assert memory["last_profile"] == first_result["profile"]["label"]
+        assert memory["score_delta"] == second_result["score"] - first_result["score"]
+        assert memory["last_status"] == "pendiente"
+
+    def test_build_proposal_incluye_client_memory_en_segundo_diagnostico(
+            self, monkeypatch, tmp_path, answers_agresivo):
+        store = self._isolated_store(monkeypatch, tmp_path)
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        first_proposal = inversiones_ia.build_proposal(result)
+        store.create_proposal("Carla Ruiz", result, first_proposal)
+
+        history = store.get_client_history("Carla Ruiz")
+        second_proposal = inversiones_ia.build_proposal(result, client_history=history)
+
+        assert second_proposal["client_memory"] is not None
+        assert second_proposal["client_memory"]["previous_count"] == 1
+        # La plantilla determinística reconoce el historial en el texto.
+        assert "diagnóstico número 2" in second_proposal["explanation"]
+
+    def test_template_explanation_sin_historial_no_menciona_memoria(self, answers_agresivo):
+        result = asesor_financiero.evaluate_profile(answers_agresivo)
+        proposal = inversiones_ia.build_proposal(result)
+        assert proposal["client_memory"] is None
+        assert "diagnóstico número" not in proposal["explanation"]

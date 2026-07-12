@@ -24,9 +24,11 @@ export default defineConfig({
       url: 'http://localhost:8001/api/health',
       reuseExistingServer: false,
       timeout: 60_000,
-      // Deterministas y offline: sin llamar a Gemini (claves vacías) ni a Yahoo/RSS
-      // (ROBO_OFFLINE usa snapshot/mock). `load_dotenv(override=False)` respeta estas.
-      env: { ...process.env, ROBO_DB_PATH: E2E_DB, GEMINI_API_KEY: '', GOOGLE_API_KEY: '', ROBO_OFFLINE: '1' },
+      // Deterministas y offline: sin llamar a DeepSeek (clave vacía) ni a Yahoo/RSS
+      // (ROBO_OFFLINE usa snapshot/mock). `load_dotenv(override=False)` respeta estas
+      // — si no se fuerza vacío aquí, el backend cargaría la key real de backend/.env
+      // y los e2e dependerían de la API real (lento, no determinista, gasta presupuesto).
+      env: { ...process.env, ROBO_DB_PATH: E2E_DB, DEEPSEEK_API_KEY: '', ROBO_OFFLINE: '1' },
     },
     {
       command: 'npm run dev',
