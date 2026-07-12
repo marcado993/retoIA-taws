@@ -6,10 +6,12 @@ el flujo humano-en-el-bucle: perfil -> propuesta -> revisión del asesor.
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from app import market_data, news_scraper, store
 from app.agents import asesor_financiero, inversiones_ia
+from app.pdf_report import generate_suitability_report_pdf
 
 app = FastAPI(title="Robo-Advisor IA", version="1.0.0")
 
@@ -107,6 +109,23 @@ def get_proposal(pid: str):
     if record is None:
         raise HTTPException(status_code=404, detail="Propuesta no encontrada")
     return record
+
+
+@app.get("/api/proposals/{pid}/report.pdf")
+def suitability_report(pid: str):
+    record = store.get_proposal(pid)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Propuesta no encontrada")
+    try:
+        pdf = generate_suitability_report_pdf(record)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    filename = f"reporte-idoneidad-{pid}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.post("/api/proposals/{pid}/decision")

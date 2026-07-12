@@ -9,6 +9,7 @@ import DecisionNote from '../molecules/DecisionNote.jsx'
 import MarketContextCard from '../molecules/MarketContextCard.jsx'
 import SlideOver from './SlideOver.jsx'
 import GoalFitCard from './GoalFitCard.jsx'
+import { api } from '../../api.js'
 
 // HU3: el asesor autorizado aprueba, edita o rechaza la propuesta.
 export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
@@ -43,6 +44,16 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
 
   // Etiqueta de botón con estado "Procesando…" (spec §4: prevención de doble envío).
   const label = (action, text) => (busyAction === action ? 'Procesando…' : text)
+  const canDownloadReport = selected.status.startsWith('aprobada')
+
+  const downloadReport = () => {
+    const link = document.createElement('a')
+    link.href = api.suitabilityReportUrl(selected.id)
+    link.download = `reporte-idoneidad-${selected.id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  }
 
   return (
     <div className="card">
@@ -150,7 +161,16 @@ export default function AdvisorDetail({ proposal: selected, onDecide, error }) {
           </SlideOver>
         </>
       ) : (
-        <DecisionNote decision={selected.decision} showRulesVersion />
+        <>
+          <DecisionNote decision={selected.decision} showRulesVersion />
+          {canDownloadReport && (
+            <div className="advisor-report-action">
+              <Button variant="ghost" data-testid="advisor-download-pdf" onClick={downloadReport}>
+                Ver PDF de idoneidad
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
