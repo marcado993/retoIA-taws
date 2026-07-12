@@ -192,8 +192,21 @@ def ai_insight(profile: str | None = None):
         cached = market_data.get_cached_payload()
         quotes = cached.get("quotes", {}) if cached else {}
     try:
-        return news_scraper.build_ai_insight(profile, noticias, quotes)
+        result = news_scraper.build_ai_insight(profile, noticias, quotes)
     except Exception:
         logging.getLogger("invertia").exception("Fallo construyendo el insight de IA")
         # Último recurso: insight mínimo válido (sin alertas) para no romper la UI.
-        return news_scraper.build_ai_insight(profile, [], {})
+        result = news_scraper.build_ai_insight(profile, [], {})
+    # G6 (mitigación de alucinaciones): si Gemini narró el resumen y el
+    # verificador lo rechazó, deja evidencia en el mismo log de auditoría que
+    # usan las propuestas — sin proposal_id porque este análisis no pertenece
+    # a una propuesta concreta.
+    for ev in result.get("guardrail_events", []):
+        store.add_audit(
+            "antialucinacion_rechazo",
+            f"verificador:{ev.get('agent', 'anti-alucinacion')}",
+            "analisis-mercado",
+            "n/d",
+            f"Salida del LLM descartada — {ev.get('reason', '')}. Fragmento: «{ev.get('snippet', '')}»",
+        )
+    return result

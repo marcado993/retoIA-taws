@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import Treemap from './Treemap.jsx'
 import SlideOver from './SlideOver.jsx'
 import Button from '../atoms/Button.jsx'
+import Chip from '../atoms/Chip.jsx'
 import MetricTile from '../molecules/MetricTile.jsx'
 import CtaNudge from '../molecules/CtaNudge.jsx'
 import AiInsightSkeleton from '../molecules/AiInsightSkeleton.jsx'
@@ -95,7 +96,15 @@ export default function AiInsightPanel({ insight, news, onRefresh, loading, reco
 
           {insight && !loading && (
             <>
-              <p className="ai-summary" role="status">{insight.summary}</p>
+              <div className="ai-summary-wrap">
+                <p className="ai-summary" role="status">{insight.summary}</p>
+                {/* Trazabilidad: mismo patrón que MarketContextCard y "Modelo de IA" del
+                    reporte — quién redactó el texto, siempre visible junto al resultado. */}
+                <Chip tone={insight.summary_source?.startsWith('gemini') ? 'green' : 'neutral'}
+                  className="ai-summary-badge" data-testid="ai-summary-source">
+                  {insight.summary_source?.startsWith('gemini') ? '✨ IA · Gemini' : 'Análisis determinístico'}
+                </Chip>
+              </div>
 
               {/* HU2 + trazabilidad: un botón explícito "Generar" abre el reporte completo
                   (propuesta, noticias que lo respaldan y qué modelo lo redactó) en vez de
