@@ -44,29 +44,34 @@ def evaluate_profile(answers: dict) -> dict:
     if missing:
         raise ValueError(f"Faltan respuestas: {', '.join(missing)}")
 
-    max_possible_points = sum(max(o["points"] for o in q["options"]) for q in rules["questions"])
-    obtained_points = 0
+    # Fórmula visible y versionada (REGLAS.md §2 / rules["scoring_formula"]):
+    # score = 100 × Σ( peso_pregunta × (puntos_respuesta − 1) / 3 ) / Σ(pesos).
+    # Cada pregunta pesa distinto (p. ej. "reacción ante una caída" pesa 25%,
+    # "experiencia previa" solo 10%) — el peso es lo que hace que el puntaje
+    # refleje la metodología de idoneidad (CFA IPS / FINRA 2111), no un simple
+    # promedio de respuestas. NO reemplazar por una suma sin ponderar: eso
+    # rompe la fórmula que el propio endpoint /api/questionnaire expone como
+    # "visible" y deja de coincidir con lo documentado en REGLAS.md.
+    total_weight = sum(q["weight"] for q in rules["questions"])
+    raw = 0.0
     breakdown = []
-    
     for q in rules["questions"]:
         option = next((o for o in q["options"] if o["value"] == answers[q["id"]]), None)
         if option is None:
             raise ValueError(f"Respuesta inválida para '{q['id']}': {answers[q['id']]}")
-        
-        obtained_points += option["points"]
-        q_max = max(o["points"] for o in q["options"])
-        
+        contribution = q["weight"] * (option["points"] - 1) / 3
+        raw += contribution
         breakdown.append({
             "question_id": q["id"],
             "question": q["text"],
             "answer": option["label"],
             "points": option["points"],
             "weight": q["weight"],
-            "contribution": round(100 * option["points"] / max_possible_points, 1),
-            "max_contribution": round(100 * q_max / max_possible_points, 1),
+            "contribution": round(100 * contribution / total_weight, 1),
+            "max_contribution": round(100 * q["weight"] / total_weight, 1),
         })
 
-    score = round(100 * obtained_points / max_possible_points)
+    score = round(100 * raw / total_weight)
 
     profile = next(
         p for p in rules["profiles"]
