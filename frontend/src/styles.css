@@ -298,6 +298,8 @@ h1, h2, h3, h4, h5, h6, .logo, .section-title, .hero-copy h1, .guide-title, .pil
 
 /* ── Inputs & Buttons ── */
 .field-label { display: block; font-size: 11px; color: var(--muted); margin: 12px 0 6px; font-weight: 700; text-transform: uppercase; }
+.field-label-row { display: flex; align-items: center; gap: 6px; }
+.field-label-row .field-label { margin: 12px 0 6px; }
 .input {
   width: 100%; border: 1px solid var(--border);
   border-radius: var(--radius-sharp); padding: 10px 14px;

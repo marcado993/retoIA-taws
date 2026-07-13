@@ -193,7 +193,14 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <FieldLabel>Tu nombre</FieldLabel>
+            <div className="field-label-row">
+              <FieldLabel>Tu nombre</FieldLabel>
+              <InfoTooltip label="¿Qué debo llenar aquí?">
+                Tu nombre completo o como quieras que te identifique el asesor. Solo
+                letras y espacios — se usa para dar seguimiento a tu caso, nunca se
+                comparte con terceros.
+              </InfoTooltip>
+            </div>
             <FieldGuideArrow active={activeField === 'nombre'} text={FIELD_GUIDE[0].text} />
             <Input data-testid="client-name" value={clientName} placeholder="Ej. Alex Rivera"
               className={activeField === 'nombre' ? 'field-active' : clientName && !nameValid ? 'field-invalid' : ''}
@@ -203,21 +210,42 @@ export default function QuestionnaireCard({ questionnaire, onSubmit, loading, on
             )}
           </div>
           <div>
-            <FieldLabel>Meta Objetivo (USD)</FieldLabel>
+            <div className="field-label-row">
+              <FieldLabel>Meta Objetivo (USD)</FieldLabel>
+              <InfoTooltip label="¿Qué debo llenar aquí?">
+                El monto total que te gustaría llegar a acumular (no lo que tienes
+                hoy). Es opcional: si lo dejas vacío, usamos un valor de referencia
+                para calcular tu propuesta igual.
+              </InfoTooltip>
+            </div>
             <FieldGuideArrow active={activeField === 'meta'} text={FIELD_GUIDE[1].text} />
             <Input type="number" value={targetAmount} placeholder="Ej. 1000000"
               className={activeField === 'meta' ? 'field-active' : ''}
               onChange={e => setTargetAmount(e.target.value)} />
           </div>
           <div>
-            <FieldLabel>Plazo Meta (Años)</FieldLabel>
+            <div className="field-label-row">
+              <FieldLabel>Plazo Meta (Años)</FieldLabel>
+              <InfoTooltip label="¿Qué debo llenar aquí?">
+                En cuántos años te gustaría alcanzar esa meta. Afecta el retorno
+                anual que necesitarías para lograrla — cuanto más corto el plazo,
+                más exigente es la meta.
+              </InfoTooltip>
+            </div>
             <FieldGuideArrow active={activeField === 'plazo'} text={FIELD_GUIDE[2].text} />
             <Input type="number" value={targetYears} placeholder="Ej. 5"
               className={activeField === 'plazo' ? 'field-active' : ''}
               onChange={e => setTargetYears(e.target.value)} />
           </div>
           <div>
-            <FieldLabel>Aporte Mensual (USD)</FieldLabel>
+            <div className="field-label-row">
+              <FieldLabel>Aporte Mensual (USD)</FieldLabel>
+              <InfoTooltip label="¿Qué debo llenar aquí?">
+                Cuánto puedes aportar cada mes, además del monto inicial. Se suma a
+                lo largo del plazo para estimar si tu meta es alcanzable con la
+                propuesta.
+              </InfoTooltip>
+            </div>
             <FieldGuideArrow active={activeField === 'aporte'} text={FIELD_GUIDE[3].text} />
             <Input type="number" value={monthlyContrib} placeholder="Ej. 2000"
               className={activeField === 'aporte' ? 'field-active' : ''}

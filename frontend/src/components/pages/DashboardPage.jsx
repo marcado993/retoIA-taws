@@ -76,9 +76,11 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
             {isDraft && (
               <div className="draft-banner" data-testid="draft-banner">
                 <p className="draft-banner-text">
-                  <strong>Vista previa:</strong> esta propuesta aún no se envió al
-                  asesor. Puedes generar otra opción con los mismos datos o
-                  confirmar esta para enviarla a revisión.
+                  {loading
+                    ? <><strong>Generando otra propuesta…</strong> el Agente de Inversiones IA está recalculando con tus mismos datos.</>
+                    : <><strong>Vista previa:</strong> esta propuesta aún no se envió al
+                      asesor. Puedes generar otra opción con los mismos datos o
+                      confirmar esta para enviarla a revisión.</>}
                 </p>
                 <div className="btn-row">
                   <Button variant="ghost" data-testid="regenerate-btn" disabled={loading}
@@ -92,7 +94,10 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
                 </div>
               </div>
             )}
-            <ProposalCard record={record} market={market} />
+            {/* Mientras se regenera, se reemplaza la propuesta vieja por el esqueleto
+                de carga — así queda claro que hay una nueva en camino en vez de que
+                los números cambien de golpe sin aviso (visibilidad del sistema). */}
+            {loading && isDraft ? <ProposalSkeleton /> : <ProposalCard record={record} market={market} />}
             {/* Siempre disponible: un perfil puede cambiar con el tiempo, así que
                 nunca se cierra la puerta a un nuevo diagnóstico. */}
             <Button variant="ghost" data-testid="new-diagnosis-btn"

@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 
 // Transparencia accesible (spec §1): un ícono "i" discreto que abre un popover
-// "¿Por qué preguntamos esto?" sin llenar la pantalla de texto legal.
+// explicando qué se pregunta o qué se espera en un campo, sin llenar la
+// pantalla de texto legal. Se abre con click (accesible por teclado/touch) O
+// con hover (conveniencia para mouse) — ambos caminos llevan al mismo popover.
 // Accesible: <button> con aria-expanded, popover con role="tooltip",
-// se cierra con Escape o al hacer clic fuera (WCAG 1.4.13 · contenido descartable).
+// se cierra con Escape, al hacer clic fuera, o al quitar el mouse (WCAG 1.4.13).
 export default function InfoTooltip({ label = '¿Por qué preguntamos esto?', children }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
+  const closeTimer = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -20,10 +23,15 @@ export default function InfoTooltip({ label = '¿Por qué preguntamos esto?', ch
     }
   }, [open])
 
+  const openOnHover = () => { clearTimeout(closeTimer.current); setOpen(true) }
+  const closeOnLeave = () => { closeTimer.current = setTimeout(() => setOpen(false), 120) }
+
   return (
-    <span className="info-tooltip" ref={wrapRef}>
+    <span className="info-tooltip" ref={wrapRef}
+      onMouseEnter={openOnHover} onMouseLeave={closeOnLeave}>
       <button type="button" className="info-tooltip-btn" data-testid="info-tooltip-btn"
         aria-expanded={open} aria-label={label}
+        onFocus={openOnHover} onBlur={closeOnLeave}
         onClick={() => setOpen(o => !o)}>
         i
       </button>
