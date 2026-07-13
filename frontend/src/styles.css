@@ -931,6 +931,7 @@ a.news-card-link:hover, a.news-card-link:focus-visible {
    LANDING & HERO — Clean premium landing page inspired by Zelify
    ──────────────────────────────────────────────────────────────────────── */
 .landing { display: flex; flex-direction: column; gap: 48px; padding: 12px 0; }
+.landing-back-row { margin-bottom: -24px; }
 .section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 6px; color: var(--ink); }
 .section-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; max-width: 680px; }
 

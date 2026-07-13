@@ -17,6 +17,7 @@ import Modal from '../organisms/Modal.jsx'
 export default function DashboardPage({ questionnaire, record, market, catalog, loading, error, onSubmit, onReset, onRegenerate, onConfirm, onSeeRules }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [initialAnswers, setInitialAnswers] = useState({})
+  const [showLanding, setShowLanding] = useState(false)
   const pr = record?.profile_result
 
   const beginWith = (answers = {}) => { setInitialAnswers(answers); setModalOpen(true) }
@@ -45,8 +46,11 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
   )
 
   // Sin propuesta activa: landing siempre visible de fondo — el diagnóstico
-  // se abre encima, sin reemplazar la página.
-  if (!record) {
+  // se abre encima, sin reemplazar la página. Con un plan ya activo, el mismo
+  // landing se puede pedir explícitamente con "← Volver al inicio" (botón en
+  // el dashboard) — y desde ahí siempre hay camino de vuelta al plan, nunca
+  // un callejón sin salida.
+  if (!record || showLanding) {
     return (
       <>
         <LandingTemplate
@@ -56,6 +60,7 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
           catalog={catalog}
           onStart={() => beginWith()}
           onSelectGoal={(objetivo) => beginWith({ objetivo })}
+          onBackToPlan={record ? () => setShowLanding(false) : undefined}
         />
         {questionnaireModal}
       </>
@@ -98,12 +103,20 @@ export default function DashboardPage({ questionnaire, record, market, catalog, 
                 de carga — así queda claro que hay una nueva en camino en vez de que
                 los números cambien de golpe sin aviso (visibilidad del sistema). */}
             {loading && isDraft ? <ProposalSkeleton /> : <ProposalCard record={record} market={market} />}
-            {/* Siempre disponible: un perfil puede cambiar con el tiempo, así que
-                nunca se cierra la puerta a un nuevo diagnóstico. */}
-            <Button variant="ghost" data-testid="new-diagnosis-btn"
-              onClick={() => { onReset(); beginWith() }}>
-              ← Nuevo diagnóstico
-            </Button>
+            <div className="btn-row">
+              {/* Siempre disponible: un perfil puede cambiar con el tiempo, así que
+                  nunca se cierra la puerta a un nuevo diagnóstico. */}
+              <Button variant="ghost" data-testid="new-diagnosis-btn"
+                onClick={() => { onReset(); beginWith() }}>
+                ← Nuevo diagnóstico
+              </Button>
+              {/* Volver a la landing sin perder el plan activo (spec: navegación
+                  sin callejón sin salida) — no descarta nada, solo cambia la vista. */}
+              <Button variant="ghost" data-testid="back-to-home-btn"
+                onClick={() => setShowLanding(true)}>
+                ← Volver al inicio
+              </Button>
+            </div>
           </>
         }
         right={
