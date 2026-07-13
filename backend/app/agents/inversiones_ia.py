@@ -446,6 +446,7 @@ def _try_llm_market_context(profile_result: dict, allocation: list, metrics: dic
                 for t in signals.get("trending_in_portfolio", [])]
     themes = [_THEME_LABELS.get(t, t) for t in signals["active_themes"]]
     prompt = (
+        _JURISDICTION_CONTEXT +
         "Eres el agente Inversiones IA. En 2-3 frases y en español claro, explica "
         "cómo las condiciones de mercado y noticias de HOY —y la tendencia real del "
         "último período, no solo el movimiento de hoy— se relacionan con ESTA "
@@ -518,6 +519,23 @@ def _template_explanation(profile_result: dict, allocation: list, metrics: dict,
 _DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-flash"  # el modelo más económico — presupuesto ajustado
 _DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 
+# Contexto de jurisdicción, anteponible a TODO prompt que le llega a DeepSeek.
+# Sin esto, un LLM entrenado mayormente con datos de EE.UU./global tiende a
+# asumir por defecto marcos como FINRA/SEC, productos como 401(k)/IRA, o
+# lenguaje de "asesor financiero certificado" que no aplica en Ecuador. Fijar
+# la jurisdicción explícitamente reduce ese sesgo por defecto — el LLM sigue
+# sin decidir cifras (eso ya lo hace el núcleo determinístico), pero al menos
+# narra dentro del marco correcto en vez del que más pesa en su entrenamiento.
+_JURISDICTION_CONTEXT = (
+    "Contexto regulatorio: operas en Ecuador, bajo la Ley de Mercado de Valores "
+    "(Código Orgánico Monetario y Financiero, Libro II) y — cuando el cliente es "
+    "socio de una cooperativa — la Ley Orgánica de Economía Popular y Solidaria "
+    "(LOEPS), supervisadas por la Superintendencia de Compañías, Valores y "
+    "Seguros (SCVS) y la Superintendencia de Economía Popular y Solidaria "
+    "(SEPS) respectivamente. NO asumas normativa de otro país (FINRA, SEC, "
+    "MiFID) ni productos que no existen en este mercado (401k, IRA, etc.). "
+)
+
 
 def _deepseek_model() -> str:
     """Modelo DeepSeek a usar. Configurable por entorno; se usa además como
@@ -585,6 +603,7 @@ def _try_llm_explanation(profile_result: dict, allocation: list, metrics: dict) 
     """Capa narrativa opcional con DeepSeek. Solo redacta: recibe los números ya
     calculados y tiene prohibido inventar cifras o prometer rentabilidad."""
     prompt = (
+        _JURISDICTION_CONTEXT +
         "Eres el agente Inversiones IA. Redacta en español, en un párrafo "
         "breve y claro para una persona sin conocimientos financieros, la "
         "explicación de esta propuesta de portafolio. Reglas estrictas: "
@@ -633,6 +652,7 @@ def _try_llm_insight_narrative(profile_label: str | None, quotes: dict,
     movers = [{"ticker": tk, "cambio_pct": q.get("change_pct")}
               for tk, q in (quotes or {}).items() if q.get("change_pct") is not None]
     prompt = (
+        _JURISDICTION_CONTEXT +
         "Eres el analista de mercado de InvertIA. En 2-3 frases y en español claro, "
         "resume el estado del mercado y las tendencias de las noticias de HOY para "
         "un inversionista"

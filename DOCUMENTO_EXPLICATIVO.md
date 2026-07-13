@@ -159,16 +159,26 @@ flowchart LR
 **Track 3 — Robo-Advisory financiero con IA**
 
 InvertIA es un sistema de asesoramiento de inversiones con **dos agentes IA especializados**
-y **supervisión humana obligatoria** (Human-in-the-Loop), diseñado para cumplir con los
-principios de reguladores financieros internacionales:
+y **supervisión humana obligatoria** (Human-in-the-Loop), diseñado para cumplir con la
+normativa financiera ecuatoriana vigente — no con normativa extranjera. Esta distinción se
+le indica de forma explícita al propio agente narrativo (DeepSeek) en cada prompt, para que
+no asuma por defecto marcos como FINRA/SEC (EE.UU.) que pesan más en los datos con los que
+se entrena un LLM genérico (ver §5, Arquitectura Anti-Alucinación).
 
-| Principio regulatorio | Norma de referencia | Implementación en InvertIA |
-|---|---|---|
-| Suitability assessment documentado | FINRA Rule 2111, MiFID II Art. 25 | 6 preguntas con pesos, score 0-100, knockouts |
-| Transparencia del cálculo | SEPS Ecuador, Reg BI | Fórmula pública, reglas versionadas, breakdown visible |
-| Responsabilidad humana | MiFID II, normativa SEPS/SBS | Asesor humano aprueba/rechaza antes de entregar |
-| Auditoría completa | FINRA, SOX, MiFID II | Registro inmutable: fecha + responsable + reglas |
-| No ejecución automática | Principio prudencial | El sistema NO ejecuta órdenes ni promete rentabilidad |
+| Principio regulatorio | Norma ecuatoriana aplicable | Autoridad | Implementación en InvertIA |
+|---|---|---|---|
+| Determinar el perfil de riesgo antes de recomendar | Ley de Mercado de Valores (COMYF, Libro II) | SCVS | 6 preguntas con pesos, score 0-100, knockouts |
+| Recomendación de inversión por escrito | Ley de Mercado de Valores (COMYF, Libro II) | SCVS | Propuesta explicable con asignación, riesgo y justificación (HU2) |
+| Prudencia financiera del socio de cooperativa | Ley Orgánica de Economía Popular y Solidaria (LOEPS) | SEPS | Knockouts de protección (fondo de emergencia, horizonte, tolerancia) |
+| Responsabilidad humana final | Principio de idoneidad, LOEPS/COMYF | SCVS / SEPS | Asesor humano aprueba/rechaza antes de entregar (HITL) |
+| Auditoría completa | COMYF — norma marco del sistema financiero | SCVS / SEPS | Registro inmutable: fecha + responsable + versión de reglas |
+| No ejecución automática | Principio prudencial | SCVS / SEPS | El sistema NO ejecuta órdenes ni promete rentabilidad |
+
+Como metodología de referencia para diseñar el cuestionario (no como norma vigente) se
+adaptaron también componentes de un Investment Policy Statement (CFA Institute) y la escala
+de tolerancia al riesgo de Grable & Lytton (1999) — citados y marcados explícitamente como
+"no vigentes en Ecuador" en `backend/app/rules/profile_rules_v1.json`, para no confundir
+metodología con obligación legal. Detalle completo en `REGLAS.md` §0.
 
 ---
 
@@ -282,7 +292,7 @@ flowchart TB
 
 ## 5. Arquitectura Anti-Alucinación
 
-Este es el diferenciador técnico más importante del proyecto. El sistema implementa **6 capas de protección**:
+Este es el diferenciador técnico más importante del proyecto. El sistema implementa **7 capas de protección**:
 
 | # | Capa | Mecanismo | Qué previene |
 |---|---|---|---|
@@ -290,8 +300,9 @@ Este es el diferenciador técnico más importante del proyecto. El sistema imple
 | 2 | **RAG contextual** | Métricas pre-calculadas inyectadas en el prompt | LLM inventando porcentajes |
 | 3 | **Verificador de salida** | Regex detecta números % fuera de métricas | LLM alucinando cifras en la narrativa |
 | 4 | **Validador de tickers** | Solo acepta tickers del catálogo aprobado | LLM inventando instrumentos |
-| 5 | **Fallback automático** | Plantilla determinística si LLM falla | Demo nunca se rompe |
-| 6 | **HITL gate** | Asesor humano revisa y firma | Propuesta incorrecta llegando al cliente |
+| 5 | **Contexto de jurisdicción** | Todo prompt fija explícitamente "operas en Ecuador, bajo la Ley de Mercado de Valores/LOEPS, NO FINRA/SEC/MiFID" (`_JURISDICTION_CONTEXT` en `inversiones_ia.py`) | LLM narrando con el sesgo por defecto de su entrenamiento (marcos y productos de EE.UU./global) en vez del marco legal que realmente rige |
+| 6 | **Fallback automático** | Plantilla determinística si LLM falla | Demo nunca se rompe |
+| 7 | **HITL gate** | Asesor humano revisa y firma | Propuesta incorrecta llegando al cliente |
 
 Adicionalmente:
 - **Auditoría de eventos anti-alucinación**: cada rechazo del verificador se persiste como evento estructurado (`guardrail_events`) con timestamp, agente, razón y fragmento del texto rechazado.

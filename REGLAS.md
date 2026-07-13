@@ -4,6 +4,24 @@
 > cada decisión del asesor queda registrada en el log de auditoría con la versión vigente de este
 > documento y de las reglas de perfilamiento (`backend/app/rules/profile_rules_v1.json`).
 
+## 0. Marco legal aplicable — Ecuador
+
+**InvertIA opera bajo la legislación ecuatoriana, no bajo normativa extranjera.** Esto no es
+un detalle de estilo: se le indica explícitamente al agente narrativo (DeepSeek) en cada prompt,
+precisamente para que no asuma por defecto marcos como FINRA/SEC (EE.UU.) o MiFID II (UE) —
+comunes en los datos con los que se entrena un LLM genérico — cuando lo que rige aquí es otro.
+
+| Norma | Qué exige | Autoridad |
+|---|---|---|
+| **Ley de Mercado de Valores** (Código Orgánico Monetario y Financiero, Libro II) | Quien intermedia inversión debe **determinar el perfil de riesgo del inversionista** antes de ofrecer alternativas, y entregar **recomendación por escrito** — exactamente el flujo perfilamiento → propuesta explicable que implementa este sistema | Superintendencia de Compañías, Valores y Seguros (**SCVS**) |
+| **Ley Orgánica de Economía Popular y Solidaria** (LOEPS) | Rige a las cooperativas de ahorro y crédito (COAC) — el mercado primario de InvertIA (§3 de `DOCUMENTO_EXPLICATIVO.md`) — y su clasificación por segmentos | Superintendencia de Economía Popular y Solidaria (**SEPS**) |
+| **Código Orgánico Monetario y Financiero** (COMYF) | Norma marco del sistema monetario, financiero, de valores y seguros del Ecuador | Junta de Política y Regulación Financiera |
+
+Las referencias a FINRA, MiFID II, CFA Institute IPS y la literatura académica (Markowitz,
+Grable & Lytton) que aparecen en `profile_rules_v1.json` son **metodología de referencia**
+—de dónde se adapta el diseño del cuestionario— y están marcadas explícitamente como
+"no vigentes en Ecuador". La norma que efectivamente rige el sistema es la ecuatoriana.
+
 ## 1. Principio rector
 
 La IA **propone, el humano dispone**. Ningún portafolio llega al cliente sin la decisión

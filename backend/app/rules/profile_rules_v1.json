@@ -3,15 +3,16 @@
   "published": "2026-07-11",
   "name": "Reglas de perfilamiento de riesgo",
   "description": "Reglas visibles y versionadas para calcular el perfil preliminar del inversionista. El puntaje se normaliza de 0 a 100 y se aplican reglas de tope (knockout) que protegen al usuario.",
-  "scoring_formula": "score = 100 * suma(puntos_obtenidos) / suma(puntos_maximos)",
-  "methodology_note": "Las 6 preguntas cubren los componentes estándar de un Investment Policy Statement (objetivos de retorno, horizonte, tolerancia al riesgo, experiencia, situación financiera y necesidades de liquidez) y los factores de idoneidad exigidos por la regulación de valores. No son un cuestionario propietario: cada pregunta cita la fuente de la que se adapta.",
+  "scoring_formula": "score = 100 * suma(peso_pregunta * (puntos_respuesta - 1) / 3) / suma(pesos)",
+  "jurisdiction": "Ecuador",
+  "methodology_note": "Este perfilamiento existe porque la Ley de Mercado de Valores de Ecuador (codificada en el Libro II del Código Orgánico Monetario y Financiero, bajo supervisión de la Superintendencia de Compañías, Valores y Seguros — SCVS) exige que quien intermedia inversión determine el perfil de riesgo del inversionista antes de ofrecer alternativas, y que toda recomendación quede por escrito — exactamente lo que hacen estas 6 preguntas y la propuesta explicable que generan. Las preguntas también cubren los componentes estándar de un Investment Policy Statement (objetivos de retorno, horizonte, tolerancia al riesgo, experiencia, situación financiera y necesidades de liquidez) y los factores de idoneidad de la regulación internacional de valores, usados aquí como metodología de referencia, no como la norma que rige el sistema. No es un cuestionario propietario: cada pregunta cita la fuente de la que se adapta.",
   "questions": [
     {
       "id": "objetivo",
       "weight": 20,
       "text": "¿Cuál es tu objetivo principal al invertir?",
       "help": "Define qué buscas lograr con tu dinero.",
-      "source": "CFA Institute — Investment Policy Statement: objetivos de retorno",
+      "source": "Ley de Mercado de Valores (COMYF Libro II, Ecuador) — determinación del perfil de riesgo antes de recomendar; metodología de referencia: CFA Institute IPS, objetivos de retorno",
       "options": [
         { "value": "preservar", "label": "Preservar mi capital, evitar pérdidas", "points": 1 },
         { "value": "ingresos", "label": "Generar ingresos estables", "points": 2 },
@@ -24,7 +25,7 @@
       "weight": 20,
       "text": "¿En cuánto tiempo necesitarás este dinero?",
       "help": "El horizonte determina cuánta volatilidad puedes absorber.",
-      "source": "CFA Institute — Investment Policy Statement: restricción de horizonte temporal",
+      "source": "Ley de Mercado de Valores (COMYF Libro II, Ecuador) — perfil de riesgo del inversionista; metodología de referencia: CFA Institute IPS, restricción de horizonte temporal",
       "options": [
         { "value": "corto", "label": "Menos de 1 año", "points": 1 },
         { "value": "medio_corto", "label": "Entre 1 y 3 años", "points": 2 },
@@ -37,7 +38,7 @@
       "weight": 25,
       "text": "Si tu portafolio cayera 20% en un mes, ¿qué harías?",
       "help": "Mide tu tolerancia emocional real ante pérdidas.",
-      "source": "Grable & Lytton (1999), Financial Services Review 8(3) — escala de tolerancia al riesgo financiero",
+      "source": "Ley de Mercado de Valores (COMYF Libro II, Ecuador) — perfil de riesgo del inversionista; escala de tolerancia adaptada de Grable & Lytton (1999), Financial Services Review 8(3)",
       "options": [
         { "value": "vender_todo", "label": "Vendería todo para no perder más", "points": 1 },
         { "value": "vender_parte", "label": "Vendería una parte", "points": 2 },
@@ -50,7 +51,7 @@
       "weight": 10,
       "text": "¿Cuál es tu experiencia previa invirtiendo?",
       "help": "La experiencia influye en la complejidad de instrumentos sugeridos.",
-      "source": "FINRA Rule 2111 (Suitability) / MiFID II Art. 25 — conocimiento y experiencia del inversionista",
+      "source": "Ley de Mercado de Valores (COMYF Libro II, Ecuador) — conocimiento y experiencia del inversionista; metodología de referencia: FINRA Rule 2111 / MiFID II Art. 25",
       "options": [
         { "value": "ninguna", "label": "Ninguna, es mi primera vez", "points": 1 },
         { "value": "basica", "label": "Básica: cuentas de ahorro o depósitos a plazo", "points": 2 },
@@ -63,7 +64,7 @@
       "weight": 10,
       "text": "¿Qué tan estables son tus ingresos mensuales?",
       "help": "Ingresos estables permiten asumir más riesgo de mercado.",
-      "source": "FINRA Rule 2111 (Suitability) — situación financiera y necesidades del cliente",
+      "source": "Ley de Mercado de Valores (COMYF Libro II, Ecuador) — situación financiera y necesidades del cliente; metodología de referencia: FINRA Rule 2111",
       "options": [
         { "value": "inestables", "label": "Variables e impredecibles", "points": 1 },
         { "value": "algo_estables", "label": "Algo variables", "points": 2 },
@@ -76,7 +77,7 @@
       "weight": 15,
       "text": "¿Cuentas con un fondo de emergencia?",
       "help": "Sin colchón de liquidez, no es prudente asumir riesgo alto.",
-      "source": "CFA Institute — Investment Policy Statement: restricción de liquidez",
+      "source": "Ley Orgánica de Economía Popular y Solidaria (LOEPS, Ecuador) — prudencia financiera del socio de cooperativa; metodología de referencia: CFA Institute IPS, restricción de liquidez",
       "options": [
         { "value": "no", "label": "No tengo fondo de emergencia", "points": 1 },
         { "value": "parcial", "label": "Cubre menos de 3 meses de gastos", "points": 2 },
@@ -114,47 +115,67 @@
       "condition": "horizonte == 'corto'",
       "cap_profile": "conservador",
       "reason": "Con un horizonte menor a 1 año no es prudente exponerse a volatilidad de mercado, sin importar la tolerancia declarada.",
-      "source": "CFA Institute IPS — el horizonte temporal limita la volatilidad tolerable independientemente del puntaje declarado"
+      "source": "Ley de Mercado de Valores (Ecuador) — deber de determinar el perfil de riesgo antes de recomendar; principio adaptado de CFA Institute IPS: el horizonte temporal limita la volatilidad tolerable independientemente del puntaje declarado"
     },
     {
       "id": "sin_fondo_emergencia",
       "condition": "emergencia == 'no'",
       "cap_profile": "moderado",
       "reason": "Sin fondo de emergencia, una caída del mercado podría forzar ventas en el peor momento. Se limita el perfil a Moderado.",
-      "source": "CFA Institute IPS — la restricción de liquidez tiene precedencia sobre la tolerancia al riesgo declarada"
+      "source": "LOEPS (Ecuador) — prudencia financiera del socio de cooperativa; principio adaptado de CFA Institute IPS: la restricción de liquidez tiene precedencia sobre la tolerancia al riesgo declarada"
     },
     {
       "id": "panico_ante_caida",
       "condition": "reaccion == 'vender_todo'",
       "cap_profile": "conservador",
       "reason": "Quien vendería todo ante una caída de 20% materializaría la pérdida. La tolerancia emocional manda sobre el puntaje.",
-      "source": "FINRA Rule 2111(a) — idoneidad de base razonable: la reacción conductual reportada prevalece sobre el puntaje agregado"
+      "source": "Ley de Mercado de Valores (Ecuador) — idoneidad de base razonable; principio adaptado de FINRA Rule 2111(a): la reacción conductual reportada prevalece sobre el puntaje agregado"
     }
   ],
   "references": [
     {
+      "id": "comyf_libro_ii",
+      "citation": "Código Orgánico Monetario y Financiero, Libro II — Ley de Mercado de Valores (Ecuador). Exige que quien intermedia inversión determine el perfil de riesgo del inversionista y entregue recomendación por escrito.",
+      "url": "https://www.bolsadequito.com/uploads/normativa/mercado-de-valores/ley-de-mercado-de-valores.pdf"
+    },
+    {
+      "id": "scvs",
+      "citation": "Superintendencia de Compañías, Valores y Seguros (SCVS) — organismo de control del mercado de valores ecuatoriano.",
+      "url": "https://www.supercias.gob.ec/portalscvs/Institucion/Mercado-de-Valores.php"
+    },
+    {
+      "id": "loeps",
+      "citation": "Ley Orgánica de Economía Popular y Solidaria (LOEPS, Ecuador) — rige a las cooperativas de ahorro y crédito (COAC), supervisadas por la SEPS.",
+      "url": "https://www.seps.gob.ec/wp-content/uploads/Ley-Organica-de-Economia-Popular-y-Solidaria.pdf"
+    },
+    {
+      "id": "comyf",
+      "citation": "Código Orgánico Monetario y Financiero (COMYF, Ecuador) — norma marco del sistema monetario, financiero, de valores y seguros.",
+      "url": "https://www.cosede.gob.ec/wp-content/uploads/2018/08/COMF.pdf"
+    },
+    {
       "id": "finra_2111",
-      "citation": "FINRA Rule 2111 — Suitability. Financial Industry Regulatory Authority.",
+      "citation": "[Metodología de referencia, no vigente en Ecuador] FINRA Rule 2111 — Suitability. Financial Industry Regulatory Authority (EE.UU.).",
       "url": "https://www.finra.org/rules-guidance/rulebooks/finra-rules/2111"
     },
     {
       "id": "mifid_ii",
-      "citation": "Directiva 2014/65/UE (MiFID II), Artículo 25 — Evaluación de idoneidad y conveniencia.",
+      "citation": "[Metodología de referencia, no vigente en Ecuador] Directiva 2014/65/UE (MiFID II), Artículo 25 — Evaluación de idoneidad y conveniencia (Unión Europea).",
       "url": "https://eur-lex.europa.eu/legal-content/ES/TXT/?uri=celex%3A32014L0065"
     },
     {
       "id": "markowitz_1952",
-      "citation": "Markowitz, H. (1952). \"Portfolio Selection.\" The Journal of Finance, 7(1), 77–91.",
+      "citation": "[Referencia académica de portafolios, no normativa] Markowitz, H. (1952). \"Portfolio Selection.\" The Journal of Finance, 7(1), 77–91.",
       "url": "https://doi.org/10.2307/2975974"
     },
     {
       "id": "grable_lytton_1999",
-      "citation": "Grable, J. E., & Lytton, R. H. (1999). \"Financial risk tolerance revisited: the development of a risk assessment instrument.\" Financial Services Review, 8(3), 163–181.",
+      "citation": "[Referencia académica de tolerancia al riesgo, no normativa] Grable, J. E., & Lytton, R. H. (1999). \"Financial risk tolerance revisited: the development of a risk assessment instrument.\" Financial Services Review, 8(3), 163–181.",
       "url": "https://doi.org/10.1016/S1057-0810(99)00041-4"
     },
     {
       "id": "cfa_ips",
-      "citation": "CFA Institute — Investment Policy Statement: componentes estándar (objetivos, horizonte, tolerancia al riesgo, liquidez, situación financiera).",
+      "citation": "[Metodología de referencia, no vigente en Ecuador] CFA Institute — Investment Policy Statement: componentes estándar (objetivos, horizonte, tolerancia al riesgo, liquidez, situación financiera).",
       "url": "https://www.cfainstitute.org/insights/professional-learning/refresher-readings/investment-policy-individual-investors"
     }
   ]
